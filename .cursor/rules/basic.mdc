@@ -1,0 +1,6 @@
+---
+description: cursor 사용 시 사용할 룰
+globs:
+alwaysApply: true
+---
+refer docs/GEMINI_en.md file.

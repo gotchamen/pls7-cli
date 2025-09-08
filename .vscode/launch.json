@@ -2,12 +2,39 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Run & Debug",
+            "name": "Run & Debug (NoOptions)",
             "type": "go",
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/main.go",
             "console": "integratedTerminal" 
+        },
+        {
+            "name": "Run & Debug (PLS7 with Blind Up 3)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/main.go",
+            "args": ["-r", "pls7", "--blind-up", "3"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Run & Debug (NLH with Dev Mode)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/main.go",
+            "args": ["-r", "nlh", "--dev"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Run & Debug (PLS7 with Dev Mode)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/main.go",
+            "args": ["-r", "pls7", "--dev", "--blind-up", "3"],
+            "console": "integratedTerminal"
         }
     ]
 }
