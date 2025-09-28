@@ -89,6 +89,11 @@ The application accepts the following flags:
 | `--blind-up`     | `int`    | `2`      | The number of hands for blinds to increase. `0` disables blind-ups.         |
 | `--dev`          | `bool`   | `false`  | Enables development mode for verbose logging.                               |
 | `--outs`         | `bool`   | `false`  | Shows hand outs for the human player.                                       |
+| `--load`, `-l`   | `string` | `""`     | Load a saved game from the specified file.                                 |
+| `--save-dir`     | `string` | `"saves"`| Directory to store save files.                                             |
+| `--initial-chips`| `int`    | `300000` | Initial chips for each player.                                              |
+| `--small-blind`  | `int`    | `500`    | Small blind amount.                                                         |
+| `--big-blind`    | `int`    | `1000`   | Big blind amount.                                                           |
 | `--help`, `-h`   | `bool`   | `false`  | Shows the help message.                                                       |
 
 ### Examples
@@ -103,9 +108,46 @@ go run main.go --rule pls
 # Start a No-Limit Hold'em (NLH) game with easy AI and show outs
 go run main.go -r nlh -d easy --outs
 
+# Load a saved game
+go run main.go --load my_save
+
 # Run in development mode for detailed logs
 go run main.go --dev
+
+# Start a game with custom settings
+go run main.go --initial-chips 500000 --small-blind 1000 --big-blind 2000
 ```
+
+### Save/Load Commands
+
+The application also provides subcommands for managing saved games:
+
+```bash
+# List all saved games
+go run main.go saves list
+
+# Validate a save file
+go run main.go saves validate my_save
+
+# Delete a save file
+go run main.go saves delete my_save
+```
+
+### Game Controls
+
+During gameplay, you can:
+- Press `ENTER` to continue to the next hand
+- Type `s` to save the current game state (available during betting rounds and between hands)
+- Type `q` to quit the game
+
+#### Betting Actions
+During your turn, you can choose from:
+- `f` - Fold (forfeit your hand)
+- `c` - Call (match the current bet)
+- `r` - Raise (increase the bet)
+- `k` - Check (pass without betting, when no bet is required)
+- `b` - Bet (make the first bet in a round)
+- `s` - Save (save the current game state)
 
 ## Creating an Executable
 

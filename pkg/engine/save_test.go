@@ -31,15 +31,16 @@ func TestGameSaveDataSerialization(t *testing.T) {
 
 	game := NewGame(playerNames, initialChips, smallBlind, bigBlind, difficulty, rules, false, false, 0)
 
-	// Start a hand to have some game state
+	// Complete a hand to reach PhaseHandOver (required for saving)
 	game.StartNewHand()
+	game.Phase = PhaseHandOver
 
 	// Convert to save data
 	saveData := game.ToSaveData()
 
 	// Verify basic structure
-	if saveData.Version != "1.0" {
-		t.Errorf("Expected version 1.0, got %s", saveData.Version)
+	if saveData.Version != "2.0" {
+		t.Errorf("Expected version 2.0, got %s", saveData.Version)
 	}
 
 	if saveData.GameMetadata.HandCount != 1 {
@@ -66,46 +67,30 @@ func TestGameSaveDataSerialization(t *testing.T) {
 }
 
 func TestGameSaveDataDeserialization(t *testing.T) {
-	// Create test save data
+	// Create test save data with simplified structure
 	saveData := &GameSaveData{
-		Version:   "1.0",
+		Version:   "2.0",
 		Timestamp: time.Now(),
 		GameMetadata: GameMetadata{
-			HandCount:      1,
-			Phase:          PhasePreFlop,
-			DealerPos:      0,
-			CurrentTurnPos: 1,
-			Pot:            300,
-			BetToCall:      200,
-			SmallBlind:     100,
-			BigBlind:       200,
+			HandCount:         1,
+			DealerPos:         0,
+			SmallBlind:        100,
+			BigBlind:          200,
+			BlindUpInterval:   0,
+			TotalInitialChips: 30000,
 		},
 		Players: []PlayerSaveData{
 			{
-				Name:           "YOU",
-				Chips:          9700,
-				IsCPU:          false,
-				Position:       0,
-				Status:         PlayerStatusPlaying,
-				CurrentBet:     200,
-				TotalBetInHand: 200,
-				Hand: []CardSaveData{
-					{Suit: 0, Rank: 14}, // Ace of Spades
-					{Suit: 1, Rank: 13}, // King of Hearts
-				},
+				Name:     "YOU",
+				Chips:    9700,
+				IsCPU:    false,
+				Position: 0,
 			},
 			{
-				Name:           "CPU1",
-				Chips:          9800,
-				IsCPU:          true,
-				Position:       1,
-				Status:         PlayerStatusPlaying,
-				CurrentBet:     200,
-				TotalBetInHand: 200,
-				Hand: []CardSaveData{
-					{Suit: 2, Rank: 12}, // Queen of Diamonds
-					{Suit: 3, Rank: 11}, // Jack of Clubs
-				},
+				Name:     "CPU1",
+				Chips:    9800,
+				IsCPU:    true,
+				Position: 1,
 				Profile: &AIProfileSaveData{
 					Name:               "Tight-Passive",
 					PlayHandThreshold:  0.6,
@@ -116,11 +101,6 @@ func TestGameSaveDataDeserialization(t *testing.T) {
 					MaxRaiseMultiplier: 4.0,
 				},
 			},
-		},
-		CommunityCards: []CardSaveData{},
-		DeckState: DeckSaveData{
-			RemainingCardsCount: 48,
-			Seed:                1234567890,
 		},
 		GameRules: poker.GameRules{
 			Name:         "Test Game",
@@ -150,13 +130,13 @@ func TestGameSaveDataDeserialization(t *testing.T) {
 		t.Fatalf("Failed to create game from save data: %v", err)
 	}
 
-	// Verify game state
+	// Verify game state - should be ready to start new hand
 	if game.HandCount != 1 {
 		t.Errorf("Expected hand count 1, got %d", game.HandCount)
 	}
 
-	if game.Phase != PhasePreFlop {
-		t.Errorf("Expected phase PreFlop, got %v", game.Phase)
+	if game.Phase != PhaseHandOver {
+		t.Errorf("Expected phase HandOver (ready for new hand), got %v", game.Phase)
 	}
 
 	if len(game.Players) != 2 {
@@ -174,9 +154,6 @@ func TestGameSaveDataDeserialization(t *testing.T) {
 	if player.IsCPU {
 		t.Error("Expected human player, got CPU")
 	}
-	if len(player.Hand) != 2 {
-		t.Errorf("Expected 2 hole cards, got %d", len(player.Hand))
-	}
 
 	// Verify second player
 	cpuPlayer := game.Players[1]
@@ -190,38 +167,6 @@ func TestGameSaveDataDeserialization(t *testing.T) {
 		t.Error("Expected AI profile for CPU player")
 	} else if cpuPlayer.Profile.Name != "Tight-Passive" {
 		t.Errorf("Expected AI profile name Tight-Passive, got %s", cpuPlayer.Profile.Name)
-	}
-}
-
-func TestCardConversion(t *testing.T) {
-	// Test card to save data conversion
-	originalCards := []poker.Card{
-		{Suit: poker.Spade, Rank: poker.Ace},
-		{Suit: poker.Heart, Rank: poker.King},
-		{Suit: poker.Diamond, Rank: poker.Queen},
-		{Suit: poker.Club, Rank: poker.Jack},
-	}
-
-	saveData := cardsToSaveData(originalCards)
-	if len(saveData) != 4 {
-		t.Errorf("Expected 4 cards in save data, got %d", len(saveData))
-	}
-
-	// Test save data to card conversion
-	convertedCards := cardsFromSaveData(saveData)
-	if len(convertedCards) != 4 {
-		t.Errorf("Expected 4 converted cards, got %d", len(convertedCards))
-	}
-
-	// Verify each card matches
-	for i, original := range originalCards {
-		converted := convertedCards[i]
-		if original.Suit != converted.Suit {
-			t.Errorf("Card %d: Expected suit %v, got %v", i, original.Suit, converted.Suit)
-		}
-		if original.Rank != converted.Rank {
-			t.Errorf("Card %d: Expected rank %v, got %v", i, original.Rank, converted.Rank)
-		}
 	}
 }
 
@@ -273,39 +218,25 @@ func TestAIProfileConversion(t *testing.T) {
 }
 
 func TestJSONSerialization(t *testing.T) {
-	// Create test save data
+	// Create test save data with simplified structure
 	saveData := &GameSaveData{
-		Version:   "1.0",
+		Version:   "2.0",
 		Timestamp: time.Now(),
 		GameMetadata: GameMetadata{
-			HandCount:      1,
-			Phase:          PhasePreFlop,
-			DealerPos:      0,
-			CurrentTurnPos: 1,
-			Pot:            300,
-			BetToCall:      200,
-			SmallBlind:     100,
-			BigBlind:       200,
+			HandCount:         1,
+			DealerPos:         0,
+			SmallBlind:        100,
+			BigBlind:          200,
+			BlindUpInterval:   0,
+			TotalInitialChips: 20000,
 		},
 		Players: []PlayerSaveData{
 			{
-				Name:           "YOU",
-				Chips:          9700,
-				IsCPU:          false,
-				Position:       0,
-				Status:         PlayerStatusPlaying,
-				CurrentBet:     200,
-				TotalBetInHand: 200,
-				Hand: []CardSaveData{
-					{Suit: 0, Rank: 14},
-					{Suit: 1, Rank: 13},
-				},
+				Name:     "YOU",
+				Chips:    9700,
+				IsCPU:    false,
+				Position: 0,
 			},
-		},
-		CommunityCards: []CardSaveData{},
-		DeckState: DeckSaveData{
-			RemainingCardsCount: 48,
-			Seed:                1234567890,
 		},
 		GameRules: poker.GameRules{
 			Name:         "Test Game",
@@ -357,4 +288,132 @@ func TestJSONSerialization(t *testing.T) {
 	if len(loadedSaveData.Players) != len(saveData.Players) {
 		t.Errorf("Expected %d players, got %d", len(saveData.Players), len(loadedSaveData.Players))
 	}
+}
+
+// TestLoadGameFunctionality tests the complete load functionality
+func TestLoadGameFunctionality(t *testing.T) {
+	// Create a temporary directory for testing
+	tempDir := t.TempDir()
+
+	// Create a test game and save it
+	game := createTestGameForLoad()
+
+	// Save the game
+	err := SaveGameToFile(game, tempDir, "test_load")
+	if err != nil {
+		t.Fatalf("Failed to save test game: %v", err)
+	}
+
+	// Load the game
+	loadedGame, err := LoadGameFromFile(tempDir, "test_load")
+	if err != nil {
+		t.Fatalf("Failed to load test game: %v", err)
+	}
+
+	// Verify loaded game matches original basic info
+	if loadedGame.HandCount != game.HandCount {
+		t.Errorf("Expected hand count %d, got %d", game.HandCount, loadedGame.HandCount)
+	}
+
+	// Loaded game should be ready to start new hand
+	if loadedGame.Phase != PhaseHandOver {
+		t.Errorf("Expected phase HandOver (ready for new hand), got %v", loadedGame.Phase)
+	}
+
+	if len(loadedGame.Players) != len(game.Players) {
+		t.Errorf("Expected %d players, got %d", len(game.Players), len(loadedGame.Players))
+	}
+
+	// Verify player states - only basic info should match
+	for i, originalPlayer := range game.Players {
+		loadedPlayer := loadedGame.Players[i]
+		if originalPlayer.Name != loadedPlayer.Name {
+			t.Errorf("Player %d: Expected name %s, got %s", i, originalPlayer.Name, loadedPlayer.Name)
+		}
+		if originalPlayer.Chips != loadedPlayer.Chips {
+			t.Errorf("Player %d: Expected chips %d, got %d", i, originalPlayer.Chips, loadedPlayer.Chips)
+		}
+		if originalPlayer.IsCPU != loadedPlayer.IsCPU {
+			t.Errorf("Player %d: Expected CPU status %t, got %t", i, originalPlayer.IsCPU, loadedPlayer.IsCPU)
+		}
+	}
+
+	// Verify game settings
+	if loadedGame.SmallBlind != game.SmallBlind {
+		t.Errorf("Expected small blind %d, got %d", game.SmallBlind, loadedGame.SmallBlind)
+	}
+
+	if loadedGame.BigBlind != game.BigBlind {
+		t.Errorf("Expected big blind %d, got %d", game.BigBlind, loadedGame.BigBlind)
+	}
+}
+
+// TestCanSaveFunctionality tests the CanSave method
+func TestCanSaveFunctionality(t *testing.T) {
+	game := createTestGameForLoad()
+
+	// Game should not be saveable in PreFlop phase
+	game.Phase = PhasePreFlop
+	if game.CanSave() {
+		t.Error("Game should not be saveable in PreFlop phase")
+	}
+
+	// Game should not be saveable in Flop phase
+	game.Phase = PhaseFlop
+	if game.CanSave() {
+		t.Error("Game should not be saveable in Flop phase")
+	}
+
+	// Game should not be saveable in Turn phase
+	game.Phase = PhaseTurn
+	if game.CanSave() {
+		t.Error("Game should not be saveable in Turn phase")
+	}
+
+	// Game should not be saveable in River phase
+	game.Phase = PhaseRiver
+	if game.CanSave() {
+		t.Error("Game should not be saveable in River phase")
+	}
+
+	// Game should not be saveable in Showdown phase
+	game.Phase = PhaseShowdown
+	if game.CanSave() {
+		t.Error("Game should not be saveable in Showdown phase")
+	}
+
+	// Game should be saveable in HandOver phase
+	game.Phase = PhaseHandOver
+	if !game.CanSave() {
+		t.Error("Game should be saveable in HandOver phase")
+	}
+}
+
+// Helper function to create a test game for loading tests
+func createTestGameForLoad() *Game {
+	playerNames := []string{"YOU", "CPU1", "CPU2"}
+	initialChips := 10000
+	smallBlind := 100
+	bigBlind := 200
+	difficulty := DifficultyMedium
+	rules := &poker.GameRules{
+		Name:         "Test Load Game",
+		Abbreviation: "TEST",
+		BettingLimit: "no_limit",
+		HoleCards: poker.HoleCardRules{
+			Count:         2,
+			UseConstraint: "any",
+		},
+		HandRankings: poker.HandRankingsRules{
+			UseStandardRankings: true,
+		},
+		LowHand: poker.LowHandRules{
+			Enabled: false,
+		},
+	}
+
+	game := NewGame(playerNames, initialChips, smallBlind, bigBlind, difficulty, rules, false, false, 0)
+	game.StartNewHand()
+	game.Phase = PhaseHandOver // Set to HandOver so it can be saved
+	return game
 }

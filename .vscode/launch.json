@@ -1,6 +1,9 @@
 {
     "version": "0.2.0",
     "configurations": [
+
+
+
         {
             "name": "Run & Debug (NoOptions)",
             "type": "go",
@@ -35,6 +38,15 @@
             "program": "${workspaceFolder}/main.go",
             "args": ["-r", "pls7", "--dev", "--blind-up", "3"],
             "console": "integratedTerminal"
-        }
+        },
+        {
+            "name": "Run & Debug (WithLoadFile)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/main.go",
+            "args": ["--load", "third"],
+            "console": "integratedTerminal"
+        },
     ]
 }
