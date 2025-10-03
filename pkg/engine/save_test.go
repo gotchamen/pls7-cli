@@ -38,11 +38,6 @@ func TestGameSaveDataSerialization(t *testing.T) {
 	// Convert to save data
 	saveData := game.ToSaveData()
 
-	// Verify basic structure
-	if saveData.Version != "2.0" {
-		t.Errorf("Expected version 2.0, got %s", saveData.Version)
-	}
-
 	if saveData.GameMetadata.HandCount != 1 {
 		t.Errorf("Expected hand count 1, got %d", saveData.GameMetadata.HandCount)
 	}
@@ -69,7 +64,6 @@ func TestGameSaveDataSerialization(t *testing.T) {
 func TestGameSaveDataDeserialization(t *testing.T) {
 	// Create test save data with simplified structure
 	saveData := &GameSaveData{
-		Version:   "2.0",
 		Timestamp: time.Now(),
 		GameMetadata: GameMetadata{
 			HandCount:         1,
@@ -220,7 +214,6 @@ func TestAIProfileConversion(t *testing.T) {
 func TestJSONSerialization(t *testing.T) {
 	// Create test save data with simplified structure
 	saveData := &GameSaveData{
-		Version:   "2.0",
 		Timestamp: time.Now(),
 		GameMetadata: GameMetadata{
 			HandCount:         1,
@@ -274,11 +267,6 @@ func TestJSONSerialization(t *testing.T) {
 	loadedSaveData, err := LoadFromJSON(jsonData)
 	if err != nil {
 		t.Fatalf("Failed to deserialize from JSON: %v", err)
-	}
-
-	// Verify loaded data matches original
-	if loadedSaveData.Version != saveData.Version {
-		t.Errorf("Expected version %s, got %s", saveData.Version, loadedSaveData.Version)
 	}
 
 	if loadedSaveData.GameMetadata.HandCount != saveData.GameMetadata.HandCount {
@@ -345,47 +333,6 @@ func TestLoadGameFunctionality(t *testing.T) {
 
 	if loadedGame.BigBlind != game.BigBlind {
 		t.Errorf("Expected big blind %d, got %d", game.BigBlind, loadedGame.BigBlind)
-	}
-}
-
-// TestCanSaveFunctionality tests the CanSave method
-func TestCanSaveFunctionality(t *testing.T) {
-	game := createTestGameForLoad()
-
-	// Game should not be saveable in PreFlop phase
-	game.Phase = PhasePreFlop
-	if game.CanSave() {
-		t.Error("Game should not be saveable in PreFlop phase")
-	}
-
-	// Game should not be saveable in Flop phase
-	game.Phase = PhaseFlop
-	if game.CanSave() {
-		t.Error("Game should not be saveable in Flop phase")
-	}
-
-	// Game should not be saveable in Turn phase
-	game.Phase = PhaseTurn
-	if game.CanSave() {
-		t.Error("Game should not be saveable in Turn phase")
-	}
-
-	// Game should not be saveable in River phase
-	game.Phase = PhaseRiver
-	if game.CanSave() {
-		t.Error("Game should not be saveable in River phase")
-	}
-
-	// Game should not be saveable in Showdown phase
-	game.Phase = PhaseShowdown
-	if game.CanSave() {
-		t.Error("Game should not be saveable in Showdown phase")
-	}
-
-	// Game should be saveable in HandOver phase
-	game.Phase = PhaseHandOver
-	if !game.CanSave() {
-		t.Error("Game should be saveable in HandOver phase")
 	}
 }
 

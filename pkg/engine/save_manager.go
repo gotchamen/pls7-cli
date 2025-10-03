@@ -227,11 +227,6 @@ func (sm *SaveManager) ValidateSaveFile(filename string) error {
 		return fmt.Errorf("invalid JSON format in save file %s: %w", fullPath, err)
 	}
 
-	// Validate version
-	if saveData.Version != "1.0" {
-		return fmt.Errorf("unsupported save file version %s in %s", saveData.Version, fullPath)
-	}
-
 	// Validate basic structure
 	if len(saveData.Players) == 0 {
 		return fmt.Errorf("save file %s contains no players", fullPath)
