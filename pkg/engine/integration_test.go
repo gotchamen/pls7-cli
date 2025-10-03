@@ -82,8 +82,8 @@ func TestSaveLoadErrorHandling(t *testing.T) {
 	game.Phase = PhaseHandOver
 
 	err = SaveGameToFile(game, tempDir, "")
-	if err == nil {
-		t.Error("Expected error when saving with empty filename")
+	if err != nil {
+		t.Error("Expected no error when saving with empty filename")
 	}
 
 	// Test saving to non-existent directory

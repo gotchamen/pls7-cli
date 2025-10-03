@@ -58,6 +58,10 @@ func TestGameSaveDataSerialization(t *testing.T) {
 		if player.IsCPU != (i != 0) {
 			t.Errorf("Expected CPU status %t for player %d, got %t", i != 0, i, player.IsCPU)
 		}
+		// Verify Status field is saved correctly
+		if player.Status != PlayerStatusPlaying {
+			t.Errorf("Expected player %d status to be Playing, got %v", i, player.Status)
+		}
 	}
 }
 
@@ -79,12 +83,14 @@ func TestGameSaveDataDeserialization(t *testing.T) {
 				Chips:    9700,
 				IsCPU:    false,
 				Position: 0,
+				Status:   PlayerStatusPlaying,
 			},
 			{
 				Name:     "CPU1",
 				Chips:    9800,
 				IsCPU:    true,
 				Position: 1,
+				Status:   PlayerStatusEliminated,
 				Profile: &AIProfileSaveData{
 					Name:               "Tight-Passive",
 					PlayHandThreshold:  0.6,
@@ -148,6 +154,9 @@ func TestGameSaveDataDeserialization(t *testing.T) {
 	if player.IsCPU {
 		t.Error("Expected human player, got CPU")
 	}
+	if player.Status != PlayerStatusPlaying {
+		t.Errorf("Expected player status Playing, got %v", player.Status)
+	}
 
 	// Verify second player
 	cpuPlayer := game.Players[1]
@@ -156,6 +165,9 @@ func TestGameSaveDataDeserialization(t *testing.T) {
 	}
 	if !cpuPlayer.IsCPU {
 		t.Error("Expected CPU player, got human")
+	}
+	if cpuPlayer.Status != PlayerStatusEliminated {
+		t.Errorf("Expected CPU player status Eliminated, got %v", cpuPlayer.Status)
 	}
 	if cpuPlayer.Profile == nil {
 		t.Error("Expected AI profile for CPU player")
@@ -184,7 +196,7 @@ func TestAIProfileConversion(t *testing.T) {
 	// Test save data to AI profile conversion
 	convertedProfile := aiProfileFromSaveData(saveData)
 	if convertedProfile == nil {
-		t.Error("Expected non-nil converted profile")
+		t.Fatal("Expected non-nil converted profile")
 	}
 
 	// Verify all fields match

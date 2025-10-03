@@ -226,9 +226,14 @@ func runGame(cmd *cobra.Command, _ []string) {
 
 			err := engine.SaveGameToFile(g, saveDir, saveFilename)
 			if err != nil {
-				fmt.Printf("Failed to save game: %v\n", err)
+				fmt.Printf("❌ Failed to save game: %v\n", err)
+				fmt.Print("Press ENTER to continue...")
+				reader.ReadString('\n')
 			} else {
-				fmt.Printf("Game saved successfully as %s.json\n", saveFilename)
+				fmt.Printf("✅ Game saved successfully as %s.json\n", saveFilename)
+				fmt.Printf("🔄 You can load this game later with: go run main.go --load\n")
+				fmt.Print("Press ENTER to continue...")
+				reader.ReadString('\n')
 			}
 			continue
 		default:

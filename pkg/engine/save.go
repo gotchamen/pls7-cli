@@ -51,6 +51,8 @@ type PlayerSaveData struct {
 	IsCPU bool `json:"is_cpu"`
 	// Position is the player's seat at the table.
 	Position int `json:"position"`
+	// Status is the player's current status (Playing, Folded, AllIn, Eliminated).
+	Status PlayerStatus `json:"status"`
 	// Profile contains the AI behavior parameters if the player is a CPU.
 	Profile *AIProfileSaveData `json:"profile,omitempty"`
 }
@@ -94,6 +96,7 @@ func (g *Game) ToSaveData() *GameSaveData {
 			Chips:    player.Chips,
 			IsCPU:    player.IsCPU,
 			Position: player.Position,
+			Status:   player.Status,
 			Profile:  aiProfileToSaveData(player.Profile),
 		}
 	}
@@ -138,6 +141,7 @@ func FromSaveData(saveData *GameSaveData) (*Game, error) {
 			Chips:    playerData.Chips,
 			IsCPU:    playerData.IsCPU,
 			Position: playerData.Position,
+			Status:   playerData.Status,
 			Profile:  aiProfileFromSaveData(playerData.Profile),
 		}
 	}
