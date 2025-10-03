@@ -89,7 +89,8 @@ The application accepts the following flags:
 | `--blind-up`     | `int`    | `2`      | The number of hands for blinds to increase. `0` disables blind-ups.         |
 | `--dev`          | `bool`   | `false`  | Enables development mode for verbose logging.                               |
 | `--outs`         | `bool`   | `false`  | Shows hand outs for the human player.                                       |
-| `--load`, `-l`   | `string` | `""`     | Load a saved game from the specified file.                                 |
+| `--load`, `-l`   | `bool`   | `false`  | Load the most recent saved game.                                            |
+| `--load-file`    | `string` | `""`     | Load a specific saved game file.                                            |
 | `--save-dir`     | `string` | `"saves"`| Directory to store save files.                                             |
 | `--initial-chips`| `int`    | `300000` | Initial chips for each player.                                              |
 | `--small-blind`  | `int`    | `500`    | Small blind amount.                                                         |
@@ -108,8 +109,11 @@ go run main.go --rule pls
 # Start a No-Limit Hold'em (NLH) game with easy AI and show outs
 go run main.go -r nlh -d easy --outs
 
-# Load a saved game
-go run main.go --load my_save
+# Load a saved game (most recent)
+go run main.go --load
+
+# Load a specific saved game
+go run main.go --load-file my_save
 
 # Run in development mode for detailed logs
 go run main.go --dev
@@ -137,7 +141,7 @@ go run main.go saves delete my_save
 
 During gameplay, you can:
 - Press `ENTER` to continue to the next hand
-- Type `s` to save the current game state (available during betting rounds and between hands)
+- Type `s` to save the current game state with an auto-generated timestamp filename (available during betting rounds and between hands)
 - Type `q` to quit the game
 
 #### Betting Actions

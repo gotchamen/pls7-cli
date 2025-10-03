@@ -25,7 +25,8 @@ var (
 	initialChips    int    // To hold the --initial-chips flag value
 	smallBlind      int    // To hold the --small-blind flag value
 	bigBlind        int    // To hold the --big-blind flag value
-	loadFile        string // To hold the --load flag value (load saved game from file)
+	loadGame        bool   // To hold the --load flag value (load saved game)
+	loadFile        string // To hold the --load-file flag value (specific filename to load)
 	saveDir         string // To hold the --save-dir flag value (directory for save files)
 )
 
@@ -55,23 +56,32 @@ func (p *CombinedActionProvider) GetAction(g *engine.Game, player *engine.Player
 	return cli.PromptForAction(g)
 }
 
-func runGame(_ *cobra.Command, _ []string) {
+func runGame(cmd *cobra.Command, _ []string) {
 	util.InitLogger(devMode)
 
 	var g *engine.Game
 	var err error
 
-	// Check if we should load a saved game
-	if loadFile != "" {
+	// Check if we should load a saved game (--load flag was specified)
+	if loadGame {
 		// Set default save directory if not specified
 		if saveDir == "" {
 			saveDir = "saves"
 		}
 
-		fmt.Printf("Loading saved game from %s...\n", loadFile)
-		g, err = engine.LoadGameFromFile(saveDir, loadFile)
+		// If no specific filename provided, load the most recent save file
+		if loadFile == "" {
+			fmt.Printf("Loading most recent saved game...\n")
+			g, err = engine.LoadGameFromFile(saveDir, "")
+		} else {
+			fmt.Printf("Loading saved game from %s...\n", loadFile)
+			g, err = engine.LoadGameFromFile(saveDir, loadFile)
+		}
 		if err != nil {
-			logrus.Fatalf("Failed to load saved game: %v", err)
+			fmt.Printf("❌ Failed to load saved game: %v\n", err)
+			fmt.Printf("💡 Make sure you have saved games in the '%s' directory.\n", saveDir)
+			fmt.Printf("💡 You can start a new game by running: go run main.go\n")
+			os.Exit(1)
 		}
 
 		fmt.Printf("Game loaded successfully! Starting new hand with Hand #%d\n",
@@ -211,13 +221,8 @@ func runGame(_ *cobra.Command, _ []string) {
 				saveDir = "saves"
 			}
 
-			fmt.Print("Enter save filename (without .json extension): ")
-			saveFilename, _ := reader.ReadString('\n')
-			saveFilename = strings.TrimSpace(saveFilename)
-
-			if saveFilename == "" {
-				saveFilename = fmt.Sprintf("save_%d", time.Now().Unix())
-			}
+			// Generate timestamp-based filename automatically
+			saveFilename := fmt.Sprintf("save_%s", time.Now().Format("20060102_150405"))
 
 			err := engine.SaveGameToFile(g, saveDir, saveFilename)
 			if err != nil {
@@ -360,7 +365,8 @@ func init() {
 	rootCmd.Flags().IntVar(&initialChips, "initial-chips", 300000, "Initial chips for each player.")
 	rootCmd.Flags().IntVar(&smallBlind, "small-blind", 500, "Small blind amount.")
 	rootCmd.Flags().IntVar(&bigBlind, "big-blind", 1000, "Big blind amount.")
-	rootCmd.Flags().StringVarP(&loadFile, "load", "l", "", "Load a saved game from the specified file.")
+	rootCmd.Flags().BoolVarP(&loadGame, "load", "l", false, "Load the most recent saved game.")
+	rootCmd.Flags().StringVar(&loadFile, "load-file", "", "Load a specific saved game file.")
 	rootCmd.Flags().StringVar(&saveDir, "save-dir", "saves", "Directory to store save files.")
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {

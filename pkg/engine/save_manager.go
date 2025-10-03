@@ -48,11 +48,12 @@ func NewSaveManager(saveDir string) (*SaveManager, error) {
 }
 
 // SaveGame saves the current game state to a file with the specified name.
+// If filename is empty, it will generate a timestamp-based filename automatically.
 // The filename should not include the .json extension as it will be added automatically.
 func (sm *SaveManager) SaveGame(game *Game, filename string) error {
-	// Validate filename
+	// Generate timestamp-based filename if not provided
 	if filename == "" {
-		return fmt.Errorf("filename cannot be empty")
+		filename = fmt.Sprintf("save_%s", time.Now().Format("20060102_150405"))
 	}
 
 	// Sanitize filename
@@ -88,7 +89,24 @@ func (sm *SaveManager) SaveGame(game *Game, filename string) error {
 }
 
 // LoadGame loads a game from the specified save file.
+// If filename is empty, it will load the most recently created save file.
 func (sm *SaveManager) LoadGame(filename string) (*Game, error) {
+	// If no filename provided, find the most recent save file
+	if filename == "" {
+		saves, err := sm.ListSaves()
+		if err != nil {
+			return nil, fmt.Errorf("failed to list save files: %w", err)
+		}
+
+		if len(saves) == 0 {
+			return nil, fmt.Errorf("no save files found in directory: %s", sm.SaveDir)
+		}
+
+		// Use the most recent save file (ListSaves returns sorted by creation time, newest first)
+		filename = saves[0].Filename
+		logrus.Infof("Auto-loading most recent save file: %s", filename)
+	}
+
 	// Add .json extension if not present
 	if !strings.HasSuffix(filename, ".json") {
 		filename += ".json"
