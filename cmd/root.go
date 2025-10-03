@@ -110,8 +110,6 @@ func runGame(_ *cobra.Command, _ []string) {
 
 	// Main Game Loop (multi-hand)
 	for {
-		cli.DisplayGameState(g)
-
 		// Always start a new hand - loaded games are ready to start fresh
 		blindEvent := g.StartNewHand()
 		if blindEvent != nil {
@@ -120,6 +118,8 @@ func runGame(_ *cobra.Command, _ []string) {
 		}
 		// Clear the loadFile flag after starting the first hand
 		loadFile = ""
+
+		cli.DisplayGameState(g)
 
 		// Single Hand Loop
 		for g.Phase != engine.PhaseShowdown && g.Phase != engine.PhaseHandOver {
