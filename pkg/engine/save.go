@@ -11,8 +11,6 @@ import (
 // serialized to JSON and saved to disk. This structure contains only the essential
 // information needed to start a new hand with the same players and settings.
 type GameSaveData struct {
-	// Version tracks the save file format version for compatibility checking.
-	Version string `json:"version"`
 	// Timestamp records when the save was created.
 	Timestamp time.Time `json:"timestamp"`
 	// GameMetadata contains the core game state information.
@@ -118,7 +116,6 @@ func (g *Game) ToSaveData() *GameSaveData {
 	}
 
 	return &GameSaveData{
-		Version:      "2.0", // Updated version for simplified format
 		Timestamp:    time.Now(),
 		GameMetadata: gameMetadata,
 		Players:      players,
@@ -130,11 +127,6 @@ func (g *Game) ToSaveData() *GameSaveData {
 // FromSaveData creates a Game instance from GameSaveData.
 // Creates a new game with the same players and settings, ready to start a new hand.
 func FromSaveData(saveData *GameSaveData) (*Game, error) {
-	// Validate version - support both old and new formats
-	if saveData.Version != "1.0" && saveData.Version != "2.0" {
-		return nil, fmt.Errorf("unsupported save file version: %s", saveData.Version)
-	}
-
 	// Create new random source
 	r := poker.NewRand(time.Now().UnixNano())
 
