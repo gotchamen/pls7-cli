@@ -3,6 +3,7 @@ package poker
 import (
 	"fmt"
 	"math/rand"
+	"time"
 )
 
 // Deck represents a collection of playing cards.
@@ -58,4 +59,16 @@ func (d *Deck) DealForDebug(card Card) (Card, error) {
 		}
 	}
 	return Card{}, fmt.Errorf("card %s not found in deck", card)
+}
+
+// NewRand creates a new random number generator with the specified seed.
+// This function is used for deterministic game state recreation when loading saved games.
+func NewRand(seed int64) *rand.Rand {
+	return rand.New(rand.NewSource(seed))
+}
+
+// NewRandWithTime creates a new random number generator with a time-based seed.
+// This function is used for normal gameplay with unpredictable randomness.
+func NewRandWithTime() *rand.Rand {
+	return rand.New(rand.NewSource(time.Now().UnixNano()))
 }
