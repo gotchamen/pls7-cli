@@ -24,7 +24,6 @@ var (
 	blindUpInterval int    // To hold the --blind-up flag value
 	initialChips    int    // To hold the --initial-chips flag value
 	smallBlind      int    // To hold the --small-blind flag value
-	bigBlind        int    // To hold the --big-blind flag value
 	loadGame        bool   // To hold the --load flag value (load saved game)
 	loadFile        string // To hold the --load-file flag value (specific filename to load)
 	saveDir         string // To hold the --save-dir flag value (directory for save files)
@@ -113,7 +112,7 @@ func runGame(cmd *cobra.Command, _ []string) {
 			difficulty = engine.DifficultyMedium
 		}
 
-		g = engine.NewGame(playerNames, initialChips, smallBlind, bigBlind, difficulty, rules, devMode, showOuts, blindUpInterval)
+		g = engine.NewGame(playerNames, initialChips, smallBlind, smallBlind*2, difficulty, rules, devMode, showOuts, blindUpInterval)
 	}
 
 	actionProvider := &CombinedActionProvider{}
@@ -369,7 +368,6 @@ func init() {
 	rootCmd.Flags().IntVar(&blindUpInterval, "blind-up", 2, "Sets the number of rounds for blind up. 0 means no blind up.")
 	rootCmd.Flags().IntVar(&initialChips, "initial-chips", 300000, "Initial chips for each player.")
 	rootCmd.Flags().IntVar(&smallBlind, "small-blind", 500, "Small blind amount.")
-	rootCmd.Flags().IntVar(&bigBlind, "big-blind", 1000, "Big blind amount.")
 	rootCmd.Flags().BoolVarP(&loadGame, "load", "l", false, "Load the most recent saved game.")
 	rootCmd.Flags().StringVar(&loadFile, "load-file", "", "Load a specific saved game file.")
 	rootCmd.Flags().StringVar(&saveDir, "save-dir", "saves", "Directory to store save files.")
@@ -380,12 +378,6 @@ func init() {
 		}
 		if smallBlind <= 0 {
 			return fmt.Errorf("small-blind는 0보다 커야 합니다. 입력값: %d", smallBlind)
-		}
-		if bigBlind <= 0 {
-			return fmt.Errorf("big-blind는 0보다 커야 합니다. 입력값: %d", bigBlind)
-		}
-		if smallBlind >= bigBlind {
-			return fmt.Errorf("small-blind(%d)는 big-blind(%d)보다 작아야 합니다", smallBlind, bigBlind)
 		}
 		return nil
 	}

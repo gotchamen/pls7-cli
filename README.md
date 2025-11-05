@@ -93,8 +93,7 @@ The application accepts the following flags:
 | `--load-file`    | `string` | `""`     | Load a specific saved game file.                                            |
 | `--save-dir`     | `string` | `"saves"`| Directory to store save files.                                             |
 | `--initial-chips`| `int`    | `300000` | Initial chips for each player.                                              |
-| `--small-blind`  | `int`    | `500`    | Small blind amount.                                                         |
-| `--big-blind`    | `int`    | `1000`   | Big blind amount.                                                           |
+| `--small-blind`  | `int`    | `500`    | Small blind amount. Big blind automatically set to twice times of it.                                                         |
 | `--help`, `-h`   | `bool`   | `false`  | Shows the help message.                                                       |
 
 ### Examples
@@ -119,7 +118,7 @@ go run main.go --load-file my_save
 go run main.go --dev
 
 # Start a game with custom settings
-go run main.go --initial-chips 500000 --small-blind 1000 --big-blind 2000
+go run main.go --initial-chips 500000 --small-blind 1000
 ```
 
 ### Save/Load Commands
