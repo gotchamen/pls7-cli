@@ -42,10 +42,10 @@ graph TD
         engine --> saves["saves/"]
     end
 
-    style poker fill:#e8f5e9
-    style engine fill:#e3f2fd
-    style cli fill:#fff3e0
-    style config fill:#fff3e0
+    style poker fill:#e8f5e9,color:#000000
+    style engine fill:#e3f2fd,color:#000000
+    style cli fill:#fff3e0,color:#000000
+    style config fill:#fff3e0,color:#000000
 ```
 
 ## Full Directory Tree

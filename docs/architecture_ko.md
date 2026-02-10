@@ -90,10 +90,10 @@ graph TD
     internal_config --> rules
     pkg_engine --> pkg_poker
 
-    style pkg_poker fill:#e1f5fe,stroke:#01579b
-    style pkg_engine fill:#fff3e0,stroke:#e65100
-    style cmd fill:#f3e5f5,stroke:#4a148c
-    style rules fill:#e8f5e9,stroke:#1b5e20
+    style pkg_poker fill:#e1f5fe,stroke:#01579b,color:#000000
+    style pkg_engine fill:#fff3e0,stroke:#e65100,color:#000000
+    style cmd fill:#f3e5f5,stroke:#4a148c,color:#000000
+    style rules fill:#e8f5e9,stroke:#1b5e20,color:#000000
 ```
 
 - **`main.go`**: 프로그램 진입점으로, `cmd.Execute()`를 호출합니다.
@@ -406,11 +406,11 @@ flowchart TD
     POT_ODDS -- Yes --> ODDS_CALL["CALL<br/>'Favorable pot odds'"]
     POT_ODDS -- No --> WEAK_FOLD["FOLD"]
 
-    style PF_FOLD fill:#ffcdd2
-    style BLUFF_BET fill:#fff9c4
-    style BLUFF_RAISE fill:#fff9c4
-    style VALUE_RAISE fill:#c8e6c9
-    style WEAK_FOLD fill:#ffcdd2
+    style PF_FOLD fill:#ffcdd2,color:#000000
+    style BLUFF_BET fill:#fff9c4,color:#000000
+    style BLUFF_RAISE fill:#fff9c4,color:#000000
+    style VALUE_RAISE fill:#c8e6c9,color:#000000
+    style WEAK_FOLD fill:#ffcdd2,color:#000000
 ```
 
 ### Pre-flop 핸드 강도 평가
