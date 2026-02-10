@@ -1,184 +1,225 @@
 # pls7-cli
 
-A simple CLI for Pot Limit Sampyong 7 or Better (PLS7) Poker
+**A CLI poker game engine supporting multiple poker variants with AI opponents.**
+
+[![Go](https://github.com/gotchamen/pls7-cli/actions/workflows/go.yml/badge.svg)](https://github.com/gotchamen/pls7-cli/actions/workflows/go.yml)
+![Go Version](https://img.shields.io/badge/Go-1.23%2B-00ADD8?logo=go)
+[![License](https://img.shields.io/github/license/gotchamen/pls7-cli)](https://github.com/gotchamen/pls7-cli/blob/main/LICENSE)
+
+---
+
+## Overview
+
+pls7-cli is a terminal-based poker game engine written in Go. It ships with five poker variants -- from the Korean community favorite PLS7 (Pot-Limit Sampyeong 7-or-Better) to classics like No-Limit Texas Hold'em and Pot-Limit Omaha. Play against AI opponents whose personality profiles and difficulty scale to your level, save and resume sessions at any time, and tweak every game parameter through CLI flags or YAML rule files.
 
 ## What is PLS7?
 
-Pot Limit Sampyong 7 or Better (PLS7, or Sampyong Hi-Lo) is a variant of poker that combines elements of traditional poker with unique rules and gameplay mechanics. It is played with a standard deck of cards and involves betting, bluffing, and strategic decision-making.
+PLS7 (Pot-Limit Sampyeong 7-or-Better) is a Hi-Lo split poker variant popular in the Korean poker community. Players receive 3 hole cards, must use exactly 2 to form a hand, and compete for both a high pot and a low pot (qualifying hands must be 7-or-better). It features skip-straight rankings and pot-limit betting.
 
-- [Guide - English](https://philipjkim.github.io/posts/20250729-pls7-english-guide/)
-- [Guide - Korean](https://philipjkim.github.io/posts/20250724-sampyeong-holdem-guide-v1-4/)
+Learn more:
 
-## Installation
+- [PLS7 Game Guide (English)](https://philipjkim.github.io/posts/20250729-pls7-english-guide/)
+- [PLS7 Game Guide (Korean)](https://philipjkim.github.io/posts/20250724-sampyeong-holdem-guide-v1-4/)
 
-This guide will walk you through setting up the Go environment and the project itself.
+## Architecture
 
-### 1. Go Language Installation
+pls7-cli follows a strict three-layer architecture: **CLI -> Engine -> Poker Library**.
 
-You need Go version 1.23 or higher to run this application.
+![Architecture Diagram](./docs/images/pls7-cli-architecture-diagram.png)
 
-#### For macOS Users
+| Layer | Package | Responsibility |
+|-------|---------|----------------|
+| Poker Library | `pkg/poker` | Cards, decks, hand evaluation, odds calculation, game rules (zero internal dependencies) |
+| Engine | `pkg/engine` | Game state machine, AI decision-making, save/load, pot distribution, betting limits |
+| CLI | `cmd/`, `internal/cli` | Terminal UI, user input, display formatting, main game loop |
 
-The easiest way to install Go on a Mac is by using [Homebrew](https://brew.sh/).
+## Features
 
-1.  If you don't have Homebrew, open your Terminal and install it with the following command:
-    ```bash
-    /bin/bash -c "$(curl -fsSL [https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh](https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh))"
-    ```
-2.  Once Homebrew is installed, install Go with this simple command:
-    ```bash
-    brew install go
-    ```
-3.  Verify the installation by checking the version:
-    ```bash
-    go version
-    ```
+- **5 poker variants** defined via YAML rule files -- easy to extend with new variants
+- **AI opponents** with 4 personality profiles (TAG, LAG, TAP, LAP) across 3 difficulty levels
+- **Save/load** game state to JSON at any point during play
+- **Configurable parameters** -- initial chips, blinds, blind-up intervals, and more
+- **Outs and equity display** in development mode for hand analysis
+- **Hi-Lo split pots** with proper side-pot calculation
 
-Alternatively, you can download the official installer from the [Go download page](https://go.dev/dl/).
+## Supported Variants
 
-#### For Windows Users
+| Variant | Full Name | Hole Cards | Betting | Hi-Lo |
+|---------|-----------|:----------:|---------|:-----:|
+| PLS7 | Pot-Limit Sampyeong 7-or-Better | 3 | Pot-Limit | Yes (7) |
+| PLS | Pot-Limit Sampyeong | 3 | Pot-Limit | No |
+| NLH | No-Limit Texas Hold'em | 2 | No-Limit | No |
+| PLO | Pot-Limit Omaha | 4 | Pot-Limit | No |
+| PLO8 | Pot-Limit Omaha 8-or-Better | 4 | Pot-Limit | Yes (8) |
 
-The recommended way to install Go on Windows is by using the official MSI installer.
+## Quick Start
 
-1.  Visit the [Go download page](https://go.dev/dl/) and download the MSI installer for Windows.
-2.  Run the downloaded installer file. The setup wizard will guide you through the installation process.
-3.  The installer will automatically add the Go binary to your system's PATH environment variable.
-4.  To verify the installation, open a new Command Prompt or PowerShell window and type:
-    ```bash
-    go version
-    ```
+### Prerequisites
 
-### 2. Project Setup
+Go 1.23 or higher is required.
 
-Once Go is installed on your system, follow these steps to set up the project.
+### Installation
 
-1.  Open your terminal or command prompt.
-2.  Clone the repository to your local machine (replace the URL with the actual repository URL):
-    ```bash
-    git clone [https://github.com/your-username/pls7-cli.git](https://github.com/your-username/pls7-cli.git)
-    ```
-3.  Navigate into the newly created project directory:
-    ```bash
-    cd pls7-cli
-    ```
-4.  Download the necessary dependencies listed in the project:
-    ```bash
-    go mod tidy
-    ```
-
-That's it! You are now ready to run the application.
-
-## Running the App
-
-You can run the application using `go run main.go` with various flags to customize the game.
-
-### Usage
+#### macOS (Homebrew)
 
 ```bash
-go run main.go [flags]
+brew install go
 ```
 
-### Flags
+#### Windows
 
-The application accepts the following flags:
+Download and run the MSI installer from the [official Go downloads page](https://go.dev/dl/). The installer adds Go to your system PATH automatically.
 
-| Flag, Short      | Type     | Default  | Description                                                                 |
-| ---------------- | -------- | -------- | --------------------------------------------------------------------------- |
-| `--rule`, `-r`   | `string` | `"pls7"` | Game rule to use. Corresponds to a file in the `/rules` directory (e.g., `pls7`, `pls`, `nlh`). |
-| `--difficulty`, `-d` | `string` | `"medium"` | AI difficulty (`easy`, `medium`, `hard`).                                   |
-| `--blind-up`     | `int`    | `2`      | The number of hands for blinds to increase. `0` disables blind-ups.         |
-| `--dev`          | `bool`   | `false`  | Enables development mode for verbose logging.                               |
-| `--outs`         | `bool`   | `false`  | Shows hand outs for the human player.                                       |
-| `--load`, `-l`   | `bool`   | `false`  | Load the most recent saved game.                                            |
-| `--load-file`    | `string` | `""`     | Load a specific saved game file.                                            |
-| `--save-dir`     | `string` | `"saves"`| Directory to store save files.                                             |
-| `--initial-chips`| `int`    | `300000` | Initial chips for each player.                                              |
-| `--small-blind`  | `int`    | `500`    | Small blind amount. Big blind automatically set to twice times of it.                                                         |
-| `--help`, `-h`   | `bool`   | `false`  | Shows the help message.                                                       |
+#### Verify Installation
+
+```bash
+go version
+```
+
+### Clone and Run
+
+```bash
+git clone https://github.com/gotchamen/pls7-cli.git
+cd pls7-cli
+go mod tidy
+go run main.go
+```
+
+## Usage
+
+```
+go run main.go [flags]
+go run main.go saves [list|validate|delete] [args]
+```
+
+### CLI Flags
+
+| Flag | Short | Type | Default | Description |
+|------|:-----:|------|---------|-------------|
+| `--rule` | `-r` | string | `pls7` | Game variant (`pls7`, `pls`, `nlh`, `plo`, `plo8`) |
+| `--difficulty` | `-d` | string | `medium` | AI difficulty (`easy`, `medium`, `hard`) |
+| `--blind-up` | | int | `2` | Hands between blind increases (`0` = disabled) |
+| `--dev` | | bool | `false` | Development mode with verbose logging |
+| `--outs` | | bool | `false` | Show hand outs for the human player |
+| `--load` | `-l` | bool | `false` | Load the most recent saved game |
+| `--load-file` | | string | `""` | Load a specific saved game file |
+| `--save-dir` | | string | `saves` | Directory for save files |
+| `--initial-chips` | | int | `300000` | Starting chips per player |
+| `--small-blind` | | int | `500` | Small blind amount (big blind = 2x) |
 
 ### Examples
 
 ```bash
-# Start a standard PLS7 game with medium AI
+# Start a default PLS7 game (medium difficulty)
 go run main.go
 
-# Start a PLS (Pot-Limit Sampyeong) game
+# Play Pot-Limit Sampyeong
 go run main.go --rule pls
 
-# Start a No-Limit Hold'em (NLH) game with easy AI and show outs
+# Play No-Limit Hold'em with easy AI and outs display
 go run main.go -r nlh -d easy --outs
 
-# Load a saved game (most recent)
-go run main.go --load
+# Play Pot-Limit Omaha with hard AI
+go run main.go -r plo -d hard
 
-# Load a specific saved game
-go run main.go --load-file my_save
+# Play PLO8 (Pot-Limit Omaha Hi-Lo)
+go run main.go -r plo8
 
-# Run in development mode for detailed logs
+# Custom chip stack and blinds
+go run main.go --initial-chips 500000 --small-blind 1000
+
+# Disable blind increases
+go run main.go --blind-up 0
+
+# Development mode for debugging
 go run main.go --dev
 
-# Start a game with custom settings
-go run main.go --initial-chips 500000 --small-blind 1000
+# Load the most recent saved game
+go run main.go --load
+
+# Load a specific save file
+go run main.go --load-file save_20260101_120000
 ```
 
-### Save/Load Commands
+## Game Controls
 
-The application also provides subcommands for managing saved games:
+### Between Hands
+
+| Key | Action |
+|-----|--------|
+| `ENTER` | Continue to the next hand |
+| `s` | Save the current game state |
+| `q` | Quit the game |
+
+### Betting Actions
+
+| Key | Action |
+|-----|--------|
+| `f` | Fold -- forfeit your hand |
+| `c` | Call -- match the current bet |
+| `r` | Raise -- increase the bet |
+| `k` | Check -- pass without betting (when no bet is required) |
+| `b` | Bet -- make the first bet in a round |
+| `s` | Save -- save the current game state |
+
+## Save / Load
+
+Games are saved as JSON files in the `saves/` directory (configurable with `--save-dir`).
 
 ```bash
 # List all saved games
 go run main.go saves list
 
 # Validate a save file
-go run main.go saves validate my_save
+go run main.go saves validate <filename>
 
 # Delete a save file
-go run main.go saves delete my_save
+go run main.go saves delete <filename>
 ```
 
-### Game Controls
-
-During gameplay, you can:
-- Press `ENTER` to continue to the next hand
-- Type `s` to save the current game state with an auto-generated timestamp filename (available during betting rounds and between hands)
-- Type `q` to quit the game
-
-#### Betting Actions
-During your turn, you can choose from:
-- `f` - Fold (forfeit your hand)
-- `c` - Call (match the current bet)
-- `r` - Raise (increase the bet)
-- `k` - Check (pass without betting, when no bet is required)
-- `b` - Bet (make the first bet in a round)
-- `s` - Save (save the current game state)
-
-## Creating an Executable
+## Building
 
 ```bash
+# Build all packages
+go build -v ./...
+
+# Create a standalone executable
 go build -o pls7 main.go
+
+# Run the executable directly
+./pls7
+./pls7 -r nlh -d hard
 ```
 
 ## Testing
 
 ```bash
-# Simple test
+# Run all tests
 go test ./...
 
-# To run all tests in the project with verbose output
+# Run all tests with verbose output
 go test -v ./...
+
+# Run tests for a specific package
+go test -v ./pkg/engine/...
+
+# Run a single test
+go test -v -run TestFuncName ./pkg/engine/
 ```
 
-## 📖 Documentation
+## Documentation
 
 - [Architecture (EN)](./docs/architecture.md)
 - [Architecture (KO)](./docs/architecture_ko.md)
 - [Directory Structure (EN)](./docs/directory_structure.md)
 - [Directory Structure (KO)](./docs/directory_structure_ko.md)
-- [Development Plan (KO)](./docs/development_plan.md)
-- [Project Roadmap (KO)](./docs/roadmap_v20250827.md)
+- [Roadmap (KO)](./docs/roadmap_v20260211.md)
+- [Roadmap - Legacy (KO)](./docs/roadmap_v20250827.md)
 
 ## Contributing
 
-This project is being actively developed with extensive use of AI tools such as GEMINI CLI, Claude Code, Codex, etc.
+This project uses [Claude Code](https://claude.ai/code) as its primary AI development tool. Development conventions, TDD requirements, and coding standards are documented in [CLAUDE.md](./CLAUDE.md).
 
-For basic development rules, please refer to the guidelines in [docs/GEMINI_en.md](./docs/GEMINI_en.md). For Korean, refer to [docs/GEMINI.md](./docs/GEMINI.md).
+## License
+
+See [LICENSE](./LICENSE) for details.

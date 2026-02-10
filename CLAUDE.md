@@ -54,6 +54,6 @@ Detailed development rules are in the `/pls7-dev-rules` skill. Key points:
 ## Skills
 
 - `/pls7-commit` — Analyze changes and execute git commit with conventional commit message (English).
-- `/pls7-pr-message` — Generate PR title + description (English first, then Korean) as raw markdown.
+- `/pls7-gh-pr` — Analyze branch diff, generate PR title + description, and create GitHub PR via `gh` CLI.
 - `/pls7-dev-rules` — Full development rules: TDD, logging, test conventions, coding standards.
 - `/pls7-work-log` — Generate a work log in `docs/issue-history/` summarizing the current session.
