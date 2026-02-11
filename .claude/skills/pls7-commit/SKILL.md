@@ -60,7 +60,7 @@ docs(gemini): Add rule for commit and PR message language
 3. **Never commit `.env`, credentials, or save files** (`saves/` directory).
 4. **Use HEREDOC** for multi-line commit messages to preserve formatting.
 5. **Do NOT push** unless the user explicitly asks.
-6. **If pre-commit hook fails**, fix the issue and create a NEW commit (never `--amend`).
+6. **If pre-commit hook fails**, fix the issue and create a NEW commit (never `--amend`). However, `--amend` is allowed for unpushed local commits when the user explicitly requests it.
 
 ## Execution Template
 
