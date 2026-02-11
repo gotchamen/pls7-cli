@@ -25,7 +25,29 @@ Learn more:
 
 pls7-cli follows a strict three-layer architecture: **CLI -> Engine -> Poker Library**.
 
-![Architecture Diagram](./docs/images/pls7-cli-architecture-diagram.png)
+```mermaid
+graph TD
+    main["main.go"] --> cmd["cmd/root.go"]
+
+    cmd --> cli["internal/cli"]
+    cmd --> cfg["internal/config"]
+    cmd --> util["internal/util"]
+    cmd --> eng["pkg/engine"]
+
+    cli --> eng
+    cfg --> poker["pkg/poker"]
+    cfg --> yml["rules/*.yml"]
+    eng --> poker
+
+    style poker fill:#2d6a4f,color:#fff
+    style eng fill:#1b4332,color:#fff
+    style cmd fill:#40916c,color:#fff
+    style cli fill:#52b788,color:#000000
+    style cfg fill:#52b788,color:#000000
+    style util fill:#52b788,color:#000000
+    style yml fill:#95d5b2,color:#000000
+    style main fill:#74c69d,color:#000000
+```
 
 | Layer | Package | Responsibility |
 |-------|---------|----------------|
