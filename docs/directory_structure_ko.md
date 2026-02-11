@@ -57,7 +57,7 @@ pls7-cli/
 │   └── skills/                     # 프로젝트 전용 Claude Code 스킬
 │       ├── pls7-commit/            # 커밋 메시지 자동 생성
 │       ├── pls7-dev-rules/         # 개발 규칙 (TDD, 로깅, 컨벤션)
-│       ├── pls7-pr-message/        # PR 제목 및 설명 생성
+│       ├── pls7-gh-pr/             # PR 제목 및 설명 생성
 │       └── pls7-work-log/          # 세션 작업 로그 생성
 ├── .github/
 │   └── workflows/
