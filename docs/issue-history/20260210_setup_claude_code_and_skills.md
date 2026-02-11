@@ -43,7 +43,7 @@ global (`~/.claude/skills/`) 에 생성한 skill 파일들을 프로젝트 종�
 
 ## 작업 내용
 
-- `~/.claude/skills/{commit,pr-message,pls7-dev-rules}/` → `.claude/skills/{commit,pr-message,pls7-dev-rules}/` 이동
+- `~/.claude/skills/{commit,pls7-gh-pr,pls7-dev-rules}/` → `.claude/skills/{commit,pls7-gh-pr,pls7-dev-rules}/` 이동
 - 기존 global 디렉토리 정리
 
 ---
