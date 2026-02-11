@@ -5,7 +5,7 @@ description: Use when writing code, adding features, fixing bugs, or refactoring
 
 # pls7-cli Development Rules
 
-Mandatory rules for all code changes in pls7-cli. Sourced from docs/GEMINI.md and CLAUDE.md.
+Mandatory rules for all code changes in pls7-cli. Sourced from CLAUDE.md.
 
 ## TDD is Required
 
