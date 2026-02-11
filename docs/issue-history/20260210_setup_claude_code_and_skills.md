@@ -22,7 +22,7 @@ docs/GEMINI.md 의 규칙들을 분석하여 3개의 skill 생성:
 - 형식: `type(scope): summary` (영어)
 - HEREDOC 사용, 특정 파일만 staging, Co-Authored-By 포함
 
-### `/pr-message` (`.claude/skills/pr-message/SKILL.md`)
+### `/pls7-gh-pr` (`.claude/skills/pls7-gh-pr/SKILL.md`)
 - branch 전체 커밋과 diff를 분석해 PR 메시지 생성
 - PR title: 영어, 70자 이내
 - PR description: 영어 먼저 → `---` → 한국어 번역
