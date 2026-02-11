@@ -55,7 +55,7 @@ docs(gemini): Add rule for commit and PR message language
 
 ## Rules
 
-1. **Title and description MUST be in English.** (from docs/GEMINI.md)
+1. **Title and description MUST be in English.** (from .claude/skills/pls7-dev-rules/SKILL.md)
 2. **Stage specific files by name.** Never use `git add -A` or `git add .` — avoid committing secrets or large binaries.
 3. **Never commit `.env`, credentials, or save files** (`saves/` directory).
 4. **Use HEREDOC** for multi-line commit messages to preserve formatting.
