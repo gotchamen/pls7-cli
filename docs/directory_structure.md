@@ -57,7 +57,7 @@ pls7-cli/
 │   └── skills/                     # Project-specific Claude Code skills
 │       ├── pls7-commit/            # Conventional commit message generation
 │       ├── pls7-dev-rules/         # Development rules (TDD, logging, conventions)
-│       ├── pls7-pr-message/        # PR title and description generation
+│       ├── pls7-gh-pr/             # PR title and description generation
 │       └── pls7-work-log/          # Session work log generation
 ├── .github/
 │   └── workflows/
