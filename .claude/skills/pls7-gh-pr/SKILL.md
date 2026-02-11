@@ -93,11 +93,10 @@ After the user approves the draft:
 
 2. **Create PR** using `gh pr create` with HEREDOC for the body:
    ```bash
-   gh pr create --title "the pr title" --body "$(cat <<'EOF'
+   gh pr create --title "the pr title" --body-file - <<'EOF'
    ## Summary
    ...body content...
    EOF
-   )"
    ```
 
 3. **Output the PR URL** returned by `gh pr create`.
