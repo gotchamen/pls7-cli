@@ -235,7 +235,7 @@ func calculateConnectivityBonus(hand []poker.Card) float64 {
 		if ranks[0] == ranks[1]+1 {
 			bonus += twoCardConnector
 		}
-		if ranks[0] >= poker.Ten && (int(ranks[0])-int(ranks[1]) < highCardGapMax) {
+		if ranks[0] >= poker.Ten && (ranks[0]-ranks[1] < poker.Rank(highCardGapMax)) {
 			bonus += highCloseBonus
 		}
 	}
