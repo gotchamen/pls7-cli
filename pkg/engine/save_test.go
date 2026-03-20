@@ -6,14 +6,9 @@ import (
 	"time"
 )
 
-func TestGameSaveDataSerialization(t *testing.T) {
-	// Create a test game
-	playerNames := []string{"YOU", "CPU1", "CPU2"}
-	initialChips := 10000
-	smallBlind := 100
-	bigBlind := 200
-	difficulty := DifficultyMedium
-	rules := &poker.GameRules{
+// newTestGameRules returns standard test game rules (NLH-like, 2 hole cards).
+func newTestGameRules() *poker.GameRules {
+	return &poker.GameRules{
 		Name:         "Test Game",
 		Abbreviation: "TEST",
 		BettingLimit: "no_limit",
@@ -28,8 +23,37 @@ func TestGameSaveDataSerialization(t *testing.T) {
 			Enabled: false,
 		},
 	}
+}
 
-	game := NewGame(playerNames, initialChips, smallBlind, bigBlind, difficulty, rules, false, false, 0)
+// newTestSaveData creates a GameSaveData with reasonable defaults.
+// Override specific fields after creation as needed.
+func newTestSaveData(players []PlayerSaveData) *GameSaveData {
+	totalChips := 0
+	for _, p := range players {
+		totalChips += p.Chips
+	}
+	return &GameSaveData{
+		Timestamp: time.Now(),
+		GameMetadata: GameMetadata{
+			HandCount:         1,
+			DealerPos:         0,
+			SmallBlind:        100,
+			BigBlind:          200,
+			BlindUpInterval:   0,
+			TotalInitialChips: totalChips,
+		},
+		Players:   players,
+		GameRules: *newTestGameRules(),
+		Settings: GameSettings{
+			Difficulty: DifficultyMedium,
+			DevMode:    false,
+			ShowsOuts:  false,
+		},
+	}
+}
+
+func TestGameSaveDataSerialization(t *testing.T) {
+	game := NewGame([]string{"YOU", "CPU1", "CPU2"}, 10000, 100, 200, DifficultyMedium, newTestGameRules(), false, false, 0)
 
 	// Complete a hand to reach PhaseHandOver (required for saving)
 	game.StartNewHand()
@@ -47,13 +71,14 @@ func TestGameSaveDataSerialization(t *testing.T) {
 	}
 
 	// Verify player data
+	expectedNames := []string{"YOU", "CPU1", "CPU2"}
 	for i, player := range saveData.Players {
-		if player.Name != playerNames[i] {
-			t.Errorf("Expected player name %s, got %s", playerNames[i], player.Name)
+		if player.Name != expectedNames[i] {
+			t.Errorf("Expected player name %s, got %s", expectedNames[i], player.Name)
 		}
 		// Chips will be different due to blind posting, so just check they're reasonable
-		if player.Chips < 0 || player.Chips > initialChips {
-			t.Errorf("Player %d chips %d is not in valid range [0, %d]", i, player.Chips, initialChips)
+		if player.Chips < 0 || player.Chips > 10000 {
+			t.Errorf("Player %d chips %d is not in valid range [0, %d]", i, player.Chips, 10000)
 		}
 		if player.IsCPU != (i != 0) {
 			t.Errorf("Expected CPU status %t for player %d, got %t", i != 0, i, player.IsCPU)
@@ -66,63 +91,31 @@ func TestGameSaveDataSerialization(t *testing.T) {
 }
 
 func TestGameSaveDataDeserialization(t *testing.T) {
-	// Create test save data with simplified structure
-	saveData := &GameSaveData{
-		Timestamp: time.Now(),
-		GameMetadata: GameMetadata{
-			HandCount:         1,
-			DealerPos:         0,
-			SmallBlind:        100,
-			BigBlind:          200,
-			BlindUpInterval:   0,
-			TotalInitialChips: 30000,
+	saveData := newTestSaveData([]PlayerSaveData{
+		{
+			Name:     "YOU",
+			Chips:    9700,
+			IsCPU:    false,
+			Position: 0,
+			Status:   PlayerStatusPlaying,
 		},
-		Players: []PlayerSaveData{
-			{
-				Name:     "YOU",
-				Chips:    9700,
-				IsCPU:    false,
-				Position: 0,
-				Status:   PlayerStatusPlaying,
-			},
-			{
-				Name:     "CPU1",
-				Chips:    9800,
-				IsCPU:    true,
-				Position: 1,
-				Status:   PlayerStatusEliminated,
-				Profile: &AIProfileSaveData{
-					Name:               "Tight-Passive",
-					PlayHandThreshold:  0.6,
-					RaiseHandThreshold: 0.8,
-					BluffingFrequency:  0.1,
-					AggressionFactor:   0.3,
-					MinRaiseMultiplier: 2.0,
-					MaxRaiseMultiplier: 4.0,
-				},
+		{
+			Name:     "CPU1",
+			Chips:    9800,
+			IsCPU:    true,
+			Position: 1,
+			Status:   PlayerStatusEliminated,
+			Profile: &AIProfileSaveData{
+				Name:               "Tight-Passive",
+				PlayHandThreshold:  0.6,
+				RaiseHandThreshold: 0.8,
+				BluffingFrequency:  0.1,
+				AggressionFactor:   0.3,
+				MinRaiseMultiplier: 2.0,
+				MaxRaiseMultiplier: 4.0,
 			},
 		},
-		GameRules: poker.GameRules{
-			Name:         "Test Game",
-			Abbreviation: "TEST",
-			BettingLimit: "no_limit",
-			HoleCards: poker.HoleCardRules{
-				Count:         2,
-				UseConstraint: "any",
-			},
-			HandRankings: poker.HandRankingsRules{
-				UseStandardRankings: true,
-			},
-			LowHand: poker.LowHandRules{
-				Enabled: false,
-			},
-		},
-		Settings: GameSettings{
-			Difficulty: DifficultyMedium,
-			DevMode:    false,
-			ShowsOuts:  false,
-		},
-	}
+	})
 
 	// Convert back to game
 	game, err := FromSaveData(saveData)
@@ -224,46 +217,14 @@ func TestAIProfileConversion(t *testing.T) {
 }
 
 func TestJSONSerialization(t *testing.T) {
-	// Create test save data with simplified structure
-	saveData := &GameSaveData{
-		Timestamp: time.Now(),
-		GameMetadata: GameMetadata{
-			HandCount:         1,
-			DealerPos:         0,
-			SmallBlind:        100,
-			BigBlind:          200,
-			BlindUpInterval:   0,
-			TotalInitialChips: 20000,
+	saveData := newTestSaveData([]PlayerSaveData{
+		{
+			Name:     "YOU",
+			Chips:    9700,
+			IsCPU:    false,
+			Position: 0,
 		},
-		Players: []PlayerSaveData{
-			{
-				Name:     "YOU",
-				Chips:    9700,
-				IsCPU:    false,
-				Position: 0,
-			},
-		},
-		GameRules: poker.GameRules{
-			Name:         "Test Game",
-			Abbreviation: "TEST",
-			BettingLimit: "no_limit",
-			HoleCards: poker.HoleCardRules{
-				Count:         2,
-				UseConstraint: "any",
-			},
-			HandRankings: poker.HandRankingsRules{
-				UseStandardRankings: true,
-			},
-			LowHand: poker.LowHandRules{
-				Enabled: false,
-			},
-		},
-		Settings: GameSettings{
-			Difficulty: DifficultyMedium,
-			DevMode:    false,
-			ShowsOuts:  false,
-		},
-	}
+	})
 
 	// Test JSON serialization
 	jsonData, err := saveData.SaveToJSON()
@@ -348,31 +309,10 @@ func TestLoadGameFunctionality(t *testing.T) {
 	}
 }
 
-// Helper function to create a test game for loading tests
+// createTestGameForLoad creates a game in HandOver state, ready to be saved.
 func createTestGameForLoad() *Game {
-	playerNames := []string{"YOU", "CPU1", "CPU2"}
-	initialChips := 10000
-	smallBlind := 100
-	bigBlind := 200
-	difficulty := DifficultyMedium
-	rules := &poker.GameRules{
-		Name:         "Test Load Game",
-		Abbreviation: "TEST",
-		BettingLimit: "no_limit",
-		HoleCards: poker.HoleCardRules{
-			Count:         2,
-			UseConstraint: "any",
-		},
-		HandRankings: poker.HandRankingsRules{
-			UseStandardRankings: true,
-		},
-		LowHand: poker.LowHandRules{
-			Enabled: false,
-		},
-	}
-
-	game := NewGame(playerNames, initialChips, smallBlind, bigBlind, difficulty, rules, false, false, 0)
+	game := NewGame([]string{"YOU", "CPU1", "CPU2"}, 10000, 100, 200, DifficultyMedium, newTestGameRules(), false, false, 0)
 	game.StartNewHand()
-	game.Phase = PhaseHandOver // Set to HandOver so it can be saved
+	game.Phase = PhaseHandOver
 	return game
 }

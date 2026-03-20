@@ -5,7 +5,7 @@ import (
 )
 
 func TestAdvanceTurn(t *testing.T) {
-	g := newGameForBettingTestsWithRules([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
+	g := newGameForBettingTests([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
 	// Initial turn is after BB, so it should be YOU (pos 0)
 	g.CurrentTurnPos = 0
 
@@ -29,7 +29,7 @@ func TestAdvanceTurn(t *testing.T) {
 }
 
 func TestAdvanceTurn_SkipsEliminatedPlayer(t *testing.T) {
-	g := newGameForBettingTestsWithRules([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
+	g := newGameForBettingTests([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
 	g.CurrentTurnPos = 0
 	g.Players[1].Status = PlayerStatusEliminated
 
@@ -41,7 +41,7 @@ func TestAdvanceTurn_SkipsEliminatedPlayer(t *testing.T) {
 }
 
 func TestCurrentPlayer(t *testing.T) {
-	g := newGameForBettingTestsWithRules([]string{"YOU", "CPU1"}, 10000, 500, 1000, "NLH")
+	g := newGameForBettingTests([]string{"YOU", "CPU1"}, 10000, 500, 1000, "NLH")
 	g.CurrentTurnPos = 1
 
 	currentPlayer := g.CurrentPlayer()

@@ -184,24 +184,27 @@ func TestDistributePot_ComplexSidePotAndAllIn(t *testing.T) {
 	rules := loadRule(t, "pls7.yml")
 	g := NewGame(playerNames, 0, 500, 1000, DifficultyEasy, rules, true, false, 0)
 
-	// Player states based on the corrected scenario
-	// YOU: Calls the final all-in
-	g.Players[0].Chips = 1136500 - 254500 // Initial chips before the final bets
+	// Player states based on the corrected scenario.
+	// Hand assignments are intentional: YOU has the strongest hand (Straight + Low qualifier),
+	// ensuring YOU scoops both main and side pots to verify the distribution math.
+
+	// YOU: Calls the final all-in — Straight (A-2-3-4-5) + qualifying Low hand
+	g.Players[0].Chips = 1136500 - 254500
 	g.Players[0].TotalBetInHand = 254500
 	g.Players[0].Status = PlayerStatusPlaying
-	g.Players[0].Hand = poker.CardsFromStrings("As 2s 3s 4s") // Hand for Straight and Low
+	g.Players[0].Hand = poker.CardsFromStrings("As 2s 3s 4s")
 
-	// CPU 1: All-in with the highest bet
+	// CPU 1: All-in with the highest bet — Two Pair (7s and 8s), no low qualifier
 	g.Players[1].Chips = 0
 	g.Players[1].TotalBetInHand = 254500
 	g.Players[1].Status = PlayerStatusAllIn
-	g.Players[1].Hand = poker.CardsFromStrings("7c 7s 8h 8s") // Weaker hand
+	g.Players[1].Hand = poker.CardsFromStrings("7c 7s 8h 8s")
 
-	// CPU 4: All-in with a lower bet
-	g.Players[2].Chips = 13000 - 205000 // Reflects state before final all-in
+	// CPU 4: All-in with a lower bet — Two Pair (Ts and 5s), no low qualifier
+	g.Players[2].Chips = 13000 - 205000
 	g.Players[2].TotalBetInHand = 205000
 	g.Players[2].Status = PlayerStatusAllIn
-	g.Players[2].Hand = poker.CardsFromStrings("Ts 6s 4h 5h") // Two Pair
+	g.Players[2].Hand = poker.CardsFromStrings("Ts 6s 4h 5h")
 
 	// Community cards
 	g.CommunityCards = poker.CardsFromStrings("Ad Kd 5c 4d Th")
@@ -313,5 +316,119 @@ func TestDistributePot_PLO8_HiLoSplit(t *testing.T) {
 	}
 	if g.Pot != 0 {
 		t.Errorf("Expected pot to be 0 after distribution, but got %d", g.Pot)
+	}
+}
+
+// TestDistributePot_ThreeWayAllIn_ThreeSidePots tests 4 players all-in at different levels
+// producing 3+ separate pot tiers.
+func TestDistributePot_ThreeWayAllIn_ThreeSidePots(t *testing.T) {
+	util.InitLogger(true)
+
+	// Scenario: 4 players all-in at 1000, 3000, 7000, 7000.
+	// Board: Kc Qc Jc Tc 2h (community flush possible)
+	// Player hands ranked (best to worst):
+	//   P0 (1000) - Ac 5c 9h → Ace-high Flush (best hand, smallest stack)
+	//   P1 (3000) - Kh Kd 9d → Three Kings
+	//   P2 (7000) - Qh Qd 8h → Three Queens
+	//   P3 (7000) - Jh Jd 7h → Three Jacks
+	//
+	// Expected pot tiers:
+	//   Tier 1: 1000*4 = 4000 (P0,P1,P2,P3 eligible) → P0 wins
+	//   Tier 2: 2000*3 = 6000 (P1,P2,P3 eligible) → P1 wins
+	//   Tier 3: 4000*2 = 8000 (P2,P3 eligible) → P2 wins
+	playerNames := []string{"YOU", "CPU1", "CPU2", "CPU3"}
+	rules := loadRule(t, "pls.yml")
+	g := NewGame(playerNames, 0, 500, 1000, DifficultyMedium, rules, true, false, 0)
+
+	g.Players[0].Chips = 0
+	g.Players[0].TotalBetInHand = 1000
+	g.Players[0].Status = PlayerStatusAllIn
+	g.Players[0].Hand = poker.CardsFromStrings("Ac 5c 9h") // Ace-high Flush
+
+	g.Players[1].Chips = 0
+	g.Players[1].TotalBetInHand = 3000
+	g.Players[1].Status = PlayerStatusAllIn
+	g.Players[1].Hand = poker.CardsFromStrings("Kh Kd 9d") // Three Kings
+
+	g.Players[2].Chips = 0
+	g.Players[2].TotalBetInHand = 7000
+	g.Players[2].Status = PlayerStatusAllIn
+	g.Players[2].Hand = poker.CardsFromStrings("Qh Qd 8h") // Three Queens
+
+	g.Players[3].Chips = 0
+	g.Players[3].TotalBetInHand = 7000
+	g.Players[3].Status = PlayerStatusAllIn
+	g.Players[3].Hand = poker.CardsFromStrings("Jh Jd 7h") // Three Jacks
+
+	g.CommunityCards = poker.CardsFromStrings("Kc Qc Jc Tc 2h")
+	g.Pot = 1000 + 3000 + 7000 + 7000 // = 18000
+
+	results := g.DistributePot()
+
+	if len(results) < 3 {
+		t.Fatalf("Expected at least 3 distribution results (3 different winners), got %d", len(results))
+	}
+
+	// P0 wins main pot: 4000
+	if g.Players[0].Chips != 4000 {
+		t.Errorf("Expected P0 to win 4000 (main pot), got %d", g.Players[0].Chips)
+	}
+	// P1 wins side pot 1: 6000
+	if g.Players[1].Chips != 6000 {
+		t.Errorf("Expected P1 to win 6000 (side pot 1), got %d", g.Players[1].Chips)
+	}
+	// P2 wins side pot 2: 8000
+	if g.Players[2].Chips != 8000 {
+		t.Errorf("Expected P2 to win 8000 (side pot 2), got %d", g.Players[2].Chips)
+	}
+	// P3 wins nothing
+	if g.Players[3].Chips != 0 {
+		t.Errorf("Expected P3 to win 0, got %d", g.Players[3].Chips)
+	}
+	if g.Pot != 0 {
+		t.Errorf("Expected pot to be 0 after distribution, got %d", g.Pot)
+	}
+}
+
+// TestDistributePot_KickerTiebreaking tests that two players with the same hand rank
+// are correctly differentiated by their kicker cards.
+func TestDistributePot_KickerTiebreaking(t *testing.T) {
+	util.InitLogger(true)
+
+	// Scenario: 2 players both have One Pair of Kings, but different kickers.
+	// Board: Kc 8s 5d 3h 2c
+	// P0: Ah Kd 9s → Pair of Kings, A-9 kickers (better)
+	// P1: Qh Ks 9d → Pair of Kings, Q-9 kickers (worse)
+	playerNames := []string{"YOU", "CPU1"}
+	rules := loadRule(t, "pls.yml")
+	g := NewGame(playerNames, 10000, 500, 1000, DifficultyMedium, rules, true, false, 0)
+
+	g.Players[0].Chips = 7000
+	g.Players[0].TotalBetInHand = 3000
+	g.Players[0].Status = PlayerStatusPlaying
+	g.Players[0].Hand = poker.CardsFromStrings("Ah Kd 9s") // Pair of Kings, Ace kicker
+
+	g.Players[1].Chips = 7000
+	g.Players[1].TotalBetInHand = 3000
+	g.Players[1].Status = PlayerStatusPlaying
+	g.Players[1].Hand = poker.CardsFromStrings("Qh Ks 9d") // Pair of Kings, Queen kicker
+
+	g.CommunityCards = poker.CardsFromStrings("Kc 8s 5d 3h 2c")
+	g.Pot = 6000
+
+	results := g.DistributePot()
+
+	// Only P0 should win (better kicker)
+	if len(results) != 1 {
+		t.Fatalf("Expected 1 winner (kicker decides), got %d", len(results))
+	}
+	if results[0].PlayerName != "YOU" {
+		t.Errorf("Expected YOU to win with better kicker, got %s", results[0].PlayerName)
+	}
+	if g.Players[0].Chips != 13000 { // 7000 + 6000 pot
+		t.Errorf("Expected YOU to have 13000 chips, got %d", g.Players[0].Chips)
+	}
+	if g.Players[1].Chips != 7000 {
+		t.Errorf("Expected CPU1 to have 7000 chips, got %d", g.Players[1].Chips)
 	}
 }
