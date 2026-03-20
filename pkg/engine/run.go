@@ -242,6 +242,62 @@ func (g *Game) StartNewHand() (event *BlindEvent) {
 	return event
 }
 
+// PlaySingleHand executes one complete hand of poker and returns the result.
+// It uses the provided ActionProvider to get player actions and notifies the
+// optional GameObserver of state changes during the hand.
+// After this method returns, the game is ready for the next hand or inter-hand
+// control (save, quit, etc.) by the caller.
+func (g *Game) PlaySingleHand(actionProvider ActionProvider, observer GameObserver) *HandResult {
+	result := &HandResult{}
+
+	// Start the hand (deals cards, posts blinds, advances dealer).
+	result.BlindEvent = g.StartNewHand()
+
+	// Notify observer of initial game state.
+	if observer != nil {
+		observer.OnPhaseStart(g)
+	}
+
+	// Betting rounds loop.
+	for g.Phase != PhaseShowdown && g.Phase != PhaseHandOver {
+		if g.CountNonFoldedPlayers() <= 1 {
+			break
+		}
+		g.PrepareNewBettingRound()
+
+		// Turn-by-turn betting loop.
+		for !g.IsBettingRoundOver() {
+			player := g.CurrentPlayer()
+			if player.Status != PlayerStatusPlaying {
+				g.AdvanceTurn()
+				continue
+			}
+
+			action := actionProvider.GetAction(g, player, g.Rand)
+			_, event := g.ProcessAction(player, action)
+
+			if observer != nil && event != nil {
+				observer.OnPlayerAction(event)
+			}
+
+			g.AdvanceTurn()
+		}
+		g.Advance()
+	}
+
+	// Conclude the hand.
+	if g.CountNonFoldedPlayers() > 1 {
+		result.IsShowdown = true
+		result.PotResults = g.DistributePot()
+	} else {
+		result.IsShowdown = false
+		result.PotResults = g.AwardPotToLastPlayer()
+	}
+
+	result.CleanupMessages = g.CleanupHand()
+	return result
+}
+
 // FindNextActivePlayer finds the index of the next player at the table who has
 // not been eliminated from the game.
 func (g *Game) FindNextActivePlayer(startPos int) int {

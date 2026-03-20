@@ -21,3 +21,25 @@ type BlindEvent struct {
 	// BigBlind is the size of the big blind.
 	BigBlind int
 }
+
+// GameObserver receives notifications during hand execution.
+// Implementations can use these to update UI, log events, etc.
+// A nil GameObserver is valid and means no notifications are sent.
+type GameObserver interface {
+	// OnPhaseStart is called at the beginning of the hand and after each phase transition.
+	OnPhaseStart(g *Game)
+	// OnPlayerAction is called after a player takes an action during a betting round.
+	OnPlayerAction(event *ActionEvent)
+}
+
+// HandResult contains the outcome of a completed hand.
+type HandResult struct {
+	// BlindEvent is non-nil if blinds increased at the start of this hand.
+	BlindEvent *BlindEvent
+	// IsShowdown is true if the hand went to showdown (multiple players remained).
+	IsShowdown bool
+	// PotResults contains the pot distribution results for all winners.
+	PotResults []DistributionResult
+	// CleanupMessages contains post-hand messages (e.g., player eliminations).
+	CleanupMessages []string
+}

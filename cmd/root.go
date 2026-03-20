@@ -29,20 +29,6 @@ var (
 	saveDir         string // To hold the --save-dir flag value (directory for save files)
 )
 
-// CLIActionProvider implements the ActionProvider interface using the CLI.
-type CLIActionProvider struct{}
-
-func (p *CLIActionProvider) GetAction(g *engine.Game, _ *engine.Player, _ *rand.Rand) engine.PlayerAction {
-	return cli.PromptForAction(g)
-}
-
-// CPUActionProvider implements the ActionProvider interface for CPU players.
-type CPUActionProvider struct{}
-
-func (p *CPUActionProvider) GetAction(g *engine.Game, pl *engine.Player, r *rand.Rand) engine.PlayerAction {
-	return g.GetCPUAction(pl, r)
-}
-
 // CombinedActionProvider decides which provider to use based on player type.
 type CombinedActionProvider struct{}
 
@@ -53,6 +39,32 @@ func (p *CombinedActionProvider) GetAction(g *engine.Game, player *engine.Player
 		return g.GetCPUAction(player, r)
 	}
 	return cli.PromptForAction(g)
+}
+
+// CLIObserver implements GameObserver for CLI display.
+type CLIObserver struct{}
+
+func (o *CLIObserver) OnPhaseStart(g *engine.Game) {
+	cli.DisplayGameState(g)
+}
+
+func (o *CLIObserver) OnPlayerAction(event *engine.ActionEvent) {
+	var msg string
+	switch event.Action {
+	case engine.ActionFold:
+		msg = fmt.Sprintf("%s folds.", event.PlayerName)
+	case engine.ActionCheck:
+		msg = fmt.Sprintf("%s checks.", event.PlayerName)
+	case engine.ActionCall:
+		msg = fmt.Sprintf("%s calls %s.", event.PlayerName, cli.FormatNumber(event.Amount))
+	case engine.ActionBet:
+		msg = fmt.Sprintf("%s bets %s.", event.PlayerName, cli.FormatNumber(event.Amount))
+	case engine.ActionRaise:
+		msg = fmt.Sprintf("%s raises to %s.", event.PlayerName, cli.FormatNumber(event.Amount))
+	}
+	if msg != "" {
+		fmt.Println(msg)
+	}
 }
 
 func runGame(cmd *cobra.Command, _ []string) {
@@ -116,73 +128,29 @@ func runGame(cmd *cobra.Command, _ []string) {
 	}
 
 	actionProvider := &CombinedActionProvider{}
+	observer := &CLIObserver{}
 
 	// Main Game Loop (multi-hand)
 	for {
-		// Always start a new hand - loaded games are ready to start fresh
-		blindEvent := g.StartNewHand()
-		if blindEvent != nil {
-			message := fmt.Sprintf("\n*** Blinds are now %s/%s ***\n", cli.FormatNumber(blindEvent.SmallBlind), cli.FormatNumber(blindEvent.BigBlind))
+		handResult := g.PlaySingleHand(actionProvider, observer)
+
+		// Display blind increase if applicable
+		if handResult.BlindEvent != nil {
+			message := fmt.Sprintf("\n*** Blinds are now %s/%s ***\n", cli.FormatNumber(handResult.BlindEvent.SmallBlind), cli.FormatNumber(handResult.BlindEvent.BigBlind))
 			fmt.Println(message)
 		}
 		// Clear the loadFile flag after starting the first hand
 		loadFile = ""
 
-		cli.DisplayGameState(g)
-
-		// Single Hand Loop
-		for g.Phase != engine.PhaseShowdown && g.Phase != engine.PhaseHandOver {
-			if g.CountNonFoldedPlayers() <= 1 {
-				break
-			}
-			g.PrepareNewBettingRound()
-
-			// New Turn-by-turn Betting Loop
-			for !g.IsBettingRoundOver() {
-				player := g.CurrentPlayer()
-				var action engine.PlayerAction
-
-				if player.Status != engine.PlayerStatusPlaying {
-					g.AdvanceTurn()
-					continue
-				}
-
-				action = actionProvider.GetAction(g, player, g.Rand)
-
-				_, event := g.ProcessAction(player, action)
-				if event != nil {
-					var eventMessage string
-					switch event.Action {
-					case engine.ActionFold:
-						eventMessage = fmt.Sprintf("%s folds.", event.PlayerName)
-					case engine.ActionCheck:
-						eventMessage = fmt.Sprintf("%s checks.", event.PlayerName)
-					case engine.ActionCall:
-						eventMessage = fmt.Sprintf("%s calls %s.", event.PlayerName, cli.FormatNumber(event.Amount))
-					case engine.ActionBet:
-						eventMessage = fmt.Sprintf("%s bets %s.", event.PlayerName, cli.FormatNumber(event.Amount))
-					case engine.ActionRaise:
-						eventMessage = fmt.Sprintf("%s raises to %s.", event.PlayerName, cli.FormatNumber(event.Amount))
-					}
-					if eventMessage != "" {
-						fmt.Println(eventMessage)
-					}
-				}
-				g.AdvanceTurn()
-			}
-			g.Advance()
-		}
-
-		// Conclude the hand
-		if g.CountNonFoldedPlayers() > 1 {
-			showdownMessages := cli.FormatShowdownResults(g)
+		// Display hand conclusion
+		if handResult.IsShowdown {
+			showdownMessages := cli.FormatShowdownResults(g, handResult.PotResults)
 			for _, msg := range showdownMessages {
 				fmt.Println(msg)
 			}
 		} else {
-			results := g.AwardPotToLastPlayer()
 			fmt.Println("--- POT AWARDED ---")
-			for _, result := range results {
+			for _, result := range handResult.PotResults {
 				fmt.Printf(
 					"%s wins %s chips with %s\n",
 					result.PlayerName, cli.FormatNumber(result.AmountWon), result.HandDesc,
@@ -191,8 +159,7 @@ func runGame(cmd *cobra.Command, _ []string) {
 			fmt.Println("------------------------")
 		}
 
-		cleanupMessages := g.CleanupHand()
-		for _, msg := range cleanupMessages {
+		for _, msg := range handResult.CleanupMessages {
 			fmt.Println(msg)
 		}
 
