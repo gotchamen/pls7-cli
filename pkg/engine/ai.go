@@ -186,19 +186,18 @@ func evaluatePreFlopStrength(hand []poker.Card) float64 {
 
 // calculatePairBonus returns the bonus for holding a pair in the hole cards.
 func calculatePairBonus(hand []poker.Card) float64 {
-	if len(hand) >= 3 {
-		if hand[0].Rank == hand[1].Rank || hand[0].Rank == hand[2].Rank || hand[1].Rank == hand[2].Rank {
-			pairRank := hand[0].Rank
-			if hand[1].Rank == hand[2].Rank {
-				pairRank = hand[1].Rank
-			}
-			return pairBonus + float64(pairRank)
-		}
-	} else if len(hand) == 2 {
-		if hand[0].Rank == hand[1].Rank {
-			return pairBonus + float64(hand[0].Rank)
+	rankCounts := make(map[poker.Rank]int)
+	for _, c := range hand {
+		rankCounts[c.Rank]++
+	}
+
+	for rank, count := range rankCounts {
+		if count >= 2 {
+			// In pre-flop with 2-3 cards, there can be at most one paired rank.
+			return pairBonus + float64(rank)
 		}
 	}
+
 	return 0
 }
 
