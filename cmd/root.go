@@ -23,10 +23,11 @@ var (
 	showOuts        bool   // To hold the --outs flag value (this does not work if devMode is true, as it will always show outs in dev mode)
 	blindUpInterval int    // To hold the --blind-up flag value
 	initialChips    int    // To hold the --initial-chips flag value
-	smallBlind      int    // To hold the --small-blind flag value
+	bigBlind        int    // To hold the --big-blind flag value (must be even, >= 2)
 	loadGame        bool   // To hold the --load flag value (load saved game)
 	loadFile        string // To hold the --load-file flag value (specific filename to load)
 	saveDir         string // To hold the --save-dir flag value (directory for save files)
+	debugHandKey    string // To hold the --debug-hand flag value (select debug hand by key, DevMode only)
 )
 
 // CombinedActionProvider decides which provider to use based on player type.
@@ -70,6 +71,13 @@ func (o *CLIObserver) OnPlayerAction(event *engine.ActionEvent) {
 
 func runGame(cmd *cobra.Command, _ []string) {
 	util.InitLogger(devMode)
+
+	// Validate --debug-hand flag
+	if debugHandKey != "" && !devMode {
+		fmt.Println("Error: --debug-hand requires --dev mode to be enabled.")
+		fmt.Println("Usage: go run main.go --dev --debug-hand <key>")
+		os.Exit(1)
+	}
 
 	var g *engine.Game
 	var err error
@@ -125,7 +133,30 @@ func runGame(cmd *cobra.Command, _ []string) {
 			difficulty = engine.DifficultyMedium
 		}
 
-		g = engine.NewGame(playerNames, initialChips, smallBlind, smallBlind*2, difficulty, rules, devMode, showOuts, blindUpInterval)
+		g = engine.NewGame(playerNames, initialChips, bigBlind/2, bigBlind, difficulty, rules, devMode, showOuts, blindUpInterval)
+
+		// Validate and set debug hand key
+		if debugHandKey != "" {
+			debugHands := engine.GetDebugHands(rules.Abbreviation)
+			if debugHands == nil {
+				fmt.Printf("Error: no debug hands registered for game variant '%s'.\n", rules.Abbreviation)
+				os.Exit(1)
+			}
+			if _, ok := debugHands[debugHandKey]; !ok {
+				fmt.Printf("Error: unknown debug hand '%s' for variant '%s'.\n", debugHandKey, rules.Abbreviation)
+				fmt.Println("Available debug hands:")
+				defaultKey, _ := engine.GetDefaultDebugHandKey(rules.Abbreviation)
+				for key, cards := range debugHands {
+					marker := "  "
+					if key == defaultKey {
+						marker = "* "
+					}
+					fmt.Printf("  %s%-20s %s\n", marker, key, cards)
+				}
+				os.Exit(1)
+			}
+			g.DebugHandKey = debugHandKey
+		}
 	}
 
 	actionProvider := &CombinedActionProvider{}
@@ -250,6 +281,46 @@ var deleteCmd = &cobra.Command{
 	Run:   deleteSave,
 }
 
+// debugHandsCmd lists available debug hands per game variant
+var debugHandsCmd = &cobra.Command{
+	Use:   "debug-hands",
+	Short: "List available debug hands for dev mode",
+	Long:  `List all registered debug hands per game variant. Use --rule to filter by variant.`,
+	Run:   listDebugHands,
+}
+
+var debugHandsRuleFilter string
+
+func listDebugHands(_ *cobra.Command, _ []string) {
+	allHands := engine.GetAllDebugHands()
+
+	// Deterministic variant ordering
+	variants := []string{"PLS7", "PLS", "PLO", "PLO8", "NLH"}
+
+	for _, variant := range variants {
+		hands, ok := allHands[variant]
+		if !ok {
+			continue
+		}
+		if debugHandsRuleFilter != "" && !strings.EqualFold(variant, debugHandsRuleFilter) {
+			continue
+		}
+
+		defaultKey, _ := engine.GetDefaultDebugHandKey(variant)
+		fmt.Printf("\n%s:\n", variant)
+		for key, cards := range hands {
+			marker := "  "
+			if key == defaultKey {
+				marker = "* "
+			}
+			fmt.Printf("  %s%-20s %s\n", marker, key, cards)
+		}
+	}
+	fmt.Println()
+	fmt.Println("  * = default hand for variant")
+	fmt.Println("  Usage: go run main.go --dev --debug-hand <key> -r <variant>")
+}
+
 // listSaves lists all saved games
 func listSaves(_ *cobra.Command, _ []string) {
 	saves, err := engine.ListSaveFiles(saveDir)
@@ -321,6 +392,7 @@ func Execute() {
 	savesCmd.AddCommand(listCmd)
 	savesCmd.AddCommand(validateCmd)
 	savesCmd.AddCommand(deleteCmd)
+	rootCmd.AddCommand(debugHandsCmd)
 
 	err := rootCmd.Execute()
 	if err != nil {
@@ -333,19 +405,25 @@ func init() {
 	rootCmd.Flags().StringVarP(&difficultyStr, "difficulty", "d", "medium", "Set AI difficulty (easy, medium, hard)")
 	rootCmd.Flags().BoolVar(&devMode, "dev", false, "Enable development mode for verbose logging.")
 	rootCmd.Flags().BoolVar(&showOuts, "outs", false, "Shows outs for players if found (temporarily draws fixed good hole cards).")
-	rootCmd.Flags().IntVar(&blindUpInterval, "blind-up", 2, "Sets the number of rounds for blind up. 0 means no blind up.")
+	rootCmd.Flags().IntVar(&blindUpInterval, "blind-up", 10, "Sets the number of hands per blind level. 0 means no blind up.")
 	rootCmd.Flags().IntVar(&initialChips, "initial-chips", 300000, "Initial chips for each player.")
-	rootCmd.Flags().IntVar(&smallBlind, "small-blind", 500, "Small blind amount.")
+	rootCmd.Flags().IntVar(&bigBlind, "big-blind", 1000, "Big blind amount (must be even, >= 2). Small blind is half.")
 	rootCmd.Flags().BoolVarP(&loadGame, "load", "l", false, "Load the most recent saved game.")
 	rootCmd.Flags().StringVar(&loadFile, "load-file", "", "Load a specific saved game file.")
 	rootCmd.Flags().StringVar(&saveDir, "save-dir", "saves", "Directory to store save files.")
+	rootCmd.Flags().StringVar(&debugHandKey, "debug-hand", "", "Select debug hand by key (requires --dev). Use 'debug-hands' command to list available keys.")
+
+	debugHandsCmd.Flags().StringVarP(&debugHandsRuleFilter, "rule", "r", "", "Filter by game variant (e.g., plo, nlh)")
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if initialChips <= 0 {
-			return fmt.Errorf("initial-chips는 0보다 커야 합니다. 입력값: %d", initialChips)
+			return fmt.Errorf("--initial-chips must be greater than 0, got: %d", initialChips)
 		}
-		if smallBlind <= 0 {
-			return fmt.Errorf("small-blind는 0보다 커야 합니다. 입력값: %d", smallBlind)
+		if bigBlind < 2 {
+			return fmt.Errorf("--big-blind must be at least 2, got: %d", bigBlind)
+		}
+		if bigBlind%2 != 0 {
+			return fmt.Errorf("--big-blind must be an even number (small blind is half), got: %d", bigBlind)
 		}
 		return nil
 	}

@@ -3,33 +3,7 @@ package engine
 import (
 	"fmt"
 	"pls7-cli/pkg/poker"
-
-	"github.com/sirupsen/logrus"
 )
-
-// playerHoleCardsForDebug is a map used for debugging and testing purposes. It allows
-// developers to force specific hole cards for the human player ("YOU") for different
-// game variants to test specific scenarios, such as hand evaluation or outs calculation.
-var playerHoleCardsForDebug = map[string]map[string]string{
-	"PLS7": {
-		"3As":        "As Ah Ad", // For testing outs for Four of a Kind
-		"AQT-suited": "As Qs Ts", // For testing outs for Flush, Straight, and Skip Straight
-		"AAK":        "As Ah Ks", // For testing outs for Three of a Kind
-		"A23-suited": "As 2s 3s", // For testing outs for Straight, Flush, and low hand scenarios
-	},
-	"PLS": {
-		"3As":        "As Ah Ad",
-		"AQT-suited": "As Qs Ts",
-		"AAK":        "As Ah Ks",
-		"AKQ-suited": "As Ks Qs",
-	},
-	"NLH": {
-		"AA":        "As Ah",
-		"KK":        "Ks Kh",
-		"AK-suited": "As Ks",
-		"KQ-suited": "Ks Qs",
-	},
-}
 
 // ProcessAction is a core state-mutating function that updates the game based on a
 // single player's action. It handles the logic for folding, checking, calling,
@@ -191,53 +165,7 @@ func (g *Game) StartNewHand() (event *BlindEvent) {
 	g.BetToCall = g.BigBlind
 	g.CurrentTurnPos = g.FindNextActivePlayer(bbPos)
 
-	// Deal hole cards.
-	// In dev/debug mode, specific cards can be dealt to the human player.
-	ruleAbbr := g.Rules.Abbreviation
-	if g.DevMode {
-		you := g.Players[0]
-		if you.Status == PlayerStatusPlaying {
-			// Deal specific debug cards to the human player.
-			if debugHand, ok := playerHoleCardsForDebug[ruleAbbr]; ok {
-				// A default hand from the map is chosen here, e.g., "3As" or "AA".
-				// This can be modified for specific testing needs.
-				var handStr string
-				if ruleAbbr == "NLH" {
-					handStr = debugHand["AA"]
-				} else {
-					handStr = debugHand["3As"]
-				}
-				playerHoleCards := poker.CardsFromStrings(handStr)
-				for _, card := range playerHoleCards {
-					dealtCard, err := g.Deck.DealForDebug(card)
-					if err == nil {
-						you.Hand = append(you.Hand, dealtCard)
-					}
-				}
-			} else {
-				logrus.Warnf("Unsupported rule abbreviation for debug hands: %s", ruleAbbr)
-			}
-		}
-		// Deal remaining cards randomly to CPUs.
-		for i := 1; i < len(g.Players); i++ {
-			for j := 0; j < g.Rules.HoleCards.Count; j++ {
-				if g.Players[i].Status == PlayerStatusPlaying {
-					card, _ := g.Deck.Deal()
-					g.Players[i].Hand = append(g.Players[i].Hand, card)
-				}
-			}
-		}
-	} else {
-		// In a normal game, deal cards to all players in order.
-		for i := 0; i < g.Rules.HoleCards.Count; i++ {
-			for pos, p := range g.Players {
-				if p.Status == PlayerStatusPlaying {
-					card, _ := g.Deck.Deal()
-					g.Players[pos].Hand = append(g.Players[pos].Hand, card)
-				}
-			}
-		}
-	}
+	g.dealHoleCards()
 
 	return event
 }

@@ -89,6 +89,9 @@ type Game struct {
 	// TotalInitialChips stores the sum of all players' starting chips, used for sanity checks
 	// to ensure chip conservation.
 	TotalInitialChips int
+	// DebugHandKey overrides the default debug hand selection when set (DevMode only).
+	// Empty string means use the default for the game variant.
+	DebugHandKey string
 }
 
 // CPUThinkTime returns the delay used to simulate CPU "thinking" for a more

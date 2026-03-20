@@ -142,6 +142,56 @@
 
 ---
 
+### Phase 4: 디버그 딜링 로직 격리
+
+**목표**: `StartNewHand`에서 디버그 전용 데이터와 딜링 분기를 별도 파일로 분리하여 핵심 로직의 가독성을 높인다.
+
+**배경**:
+- `playerHoleCardsForDebug` 맵과 디버그 딜링 분기(~30줄)가 `run.go`의 `StartNewHand` 안에 있어 정상 딜링 로직과 뒤섞임
+- 디버그 데이터는 프로덕션이 아닌 개발자 전용이므로 설정 파일 분리는 과하지만, 코드 파일 분리는 적절
+
+**작업 내용**:
+1. `pkg/engine/debug_deal.go` 신규 파일 생성
+   - `playerHoleCardsForDebug` 변수 이동
+   - 디버그 딜링 로직을 `dealDebugHoleCards(g *Game)` 메서드로 추출
+2. `pkg/engine/run.go`의 `StartNewHand`에서 카드 딜링 부분을 `dealHoleCards()` 메서드로 추출
+   - 내부에서 `DevMode` 분기 → `dealDebugHoleCards` 또는 정상 딜링
+3. 정상 딜링 로직도 `dealNormalHoleCards(g *Game)` 헬퍼로 분리하여 대칭 유지
+
+**체크리스트**:
+
+- [x] `pkg/engine/debug_deal.go` 생성, `playerHoleCardsForDebug` + `dealDebugHoleCards` + `defaultDebugHandKey` 이동
+- [x] `pkg/engine/run.go`에서 `dealHoleCards()` → `debug_deal.go`로 추출, `StartNewHand`에서 한 줄 호출
+- [x] `dealNormalHoleCards()` 정상 딜링 로직도 대칭 분리
+- [x] `go build -v ./...` 성공 확인
+- [x] `go test -v ./...` 전체 통과 확인
+
+### Phase 4-2: 디버그 핸드 런타임 선택 및 조회 커맨드
+
+**목표**: 코드 수정 없이 CLI에서 디버그 핸드를 선택할 수 있게 하고, 사용 가능한 핸드를 조회할 수 있게 한다.
+
+**작업 내용**:
+1. `--debug-hand <key>` 플래그 추가
+   - DevMode일 때만 유효, 미지정 시 `defaultDebugHandKey`의 값 사용
+   - DevMode가 아닌데 지정하면 에러 메시지 출력 후 종료
+   - 존재하지 않는 키를 지정하면 에러 메시지 + 사용 가능한 키 목록 출력 후 종료
+2. `pls7 debug-hands [--rule <variant>]` 서브커맨드 추가
+   - 게임 타입별 등록된 디버그 핸드 목록 출력
+   - `--rule` 미지정 시 전체 변형 출력
+
+**체크리스트**:
+
+- [x] `cmd/root.go`에 `--debug-hand` 플래그 추가
+- [x] `runGame`에서 DevMode가 아닌데 `--debug-hand` 지정 시 에러 종료 처리
+- [x] `pkg/engine/game.go`에 `DebugHandKey` 필드 추가, `dealDebugHoleCards`가 이를 참조
+- [x] 잘못된 핸드키 지정 시 사용 가능한 키 목록 출력 후 종료
+- [x] `cmd/root.go`에 `debug-hands [--rule <variant>]` 서브커맨드 추가
+- [x] `pkg/engine/debug_deal.go`에 `GetDebugHands`, `GetAllDebugHands`, `GetDefaultDebugHandKey` 공개 함수 추가
+- [x] `go build -v ./...` 성공 확인
+- [x] `go test -v ./...` 전체 통과 확인
+
+---
+
 ## 다음 작업 예고: 포커 엔진 핵심 로직 재설계
 
 이번 작업이 완료되면 별도 PR로 진행할 예정:
