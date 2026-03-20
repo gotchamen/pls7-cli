@@ -58,88 +58,98 @@ var aiProfiles = map[string]AIProfile{
 }
 
 // GetCPUAction determines the action for an AI-controlled player based on their
-// assigned profile and the current game state. This method implements the
-// ActionProvider interface for CPU players.
-// The logic is divided into pre-flop and post-flop stages.
+// assigned profile and the current game state.
 func (g *Game) GetCPUAction(player *Player, r *rand.Rand) PlayerAction {
-	// First, evaluate the strength of the player's hand.
 	strength := g.handEvaluator(g, player)
-	canCheck := player.CurrentBet == g.BetToCall
-
-	// Simulate thinking time for a more realistic game pace.
 	time.Sleep(g.CPUThinkTime())
 
-	// --- Pre-Flop Logic ---
-	// Based on a simplified hand strength score.
 	if g.Phase == PhasePreFlop {
-		// Fold if hand strength is below the profile's play threshold.
-		if strength < player.Profile.PlayHandThreshold {
-			return PlayerAction{Type: ActionFold}
-		}
-		// Raise if hand strength is above the profile's raise threshold.
-		if strength >= player.Profile.RaiseHandThreshold {
-			return PlayerAction{Type: ActionRaise, Amount: g.minRaiseAmount() * 2}
-		}
-		// Otherwise, just call.
-		return PlayerAction{Type: ActionCall}
+		return g.getPreFlopAction(player, strength)
 	}
+	return g.getPostFlopAction(player, r, strength)
+}
 
-	// --- Post-Flop Logic ---
-	// Based on the actual rank of the 5-card hand.
-
-	// 1. Bluffing Logic: Decide whether to bluff based on profile frequency.
-	// A bluff is only attempted with a weak hand (less than OnePair).
-	isBluffing := r.Float64() < player.Profile.BluffingFrequency
-	if isBluffing && strength < float64(poker.OnePair) {
-		if canCheck {
-			// A "probe" bet when checked to.
-			return PlayerAction{Type: ActionBet, Amount: g.Pot / 2}
-		}
-		// A bluff raise.
-		return PlayerAction{Type: ActionRaise, Amount: g.minRaiseAmount() * 2}
-	}
-
-	// 2. Value Betting/Raising Logic (based on hand strength).
-	if strength >= float64(poker.TwoPair) { // Strong hands (Two Pair or better).
-		// Decide whether to be aggressive or "slow play" (trap).
-		if r.Float64() < player.Profile.AggressionFactor {
-			return PlayerAction{Type: ActionRaise, Amount: g.minRaiseAmount() * 2}
-		} else {
-			return PlayerAction{Type: ActionCall} // Slow play.
-		}
-	} else if strength >= float64(poker.OnePair) { // Decent, but vulnerable hands.
-		// Prefer to see the next card cheaply.
-		if canCheck {
-			return PlayerAction{Type: ActionCheck}
-		}
-		return PlayerAction{Type: ActionCall}
-	} else { // Weak hands / draws.
-		if canCheck {
-			return PlayerAction{Type: ActionCheck}
-		}
-		// Decide whether to fold or call based on a simplified version of pot odds.
-		potOdds := float64(g.BetToCall) / float64(g.Pot+g.BetToCall)
-		// A very rough estimation of equity.
-		if potOdds < player.Profile.BluffingFrequency*0.5 { // Call if pot odds are favorable.
-			return PlayerAction{Type: ActionCall}
-		}
+// getPreFlopAction decides the CPU action before the flop based on hand strength thresholds.
+func (g *Game) getPreFlopAction(player *Player, strength float64) PlayerAction {
+	if strength < player.Profile.PlayHandThreshold {
 		return PlayerAction{Type: ActionFold}
 	}
+	if strength >= player.Profile.RaiseHandThreshold {
+		return PlayerAction{Type: ActionRaise, Amount: g.minRaiseAmount() * 2}
+	}
+	return PlayerAction{Type: ActionCall}
+}
+
+// getPostFlopAction decides the CPU action after the flop based on hand strength,
+// bluffing probability, and aggression factor.
+func (g *Game) getPostFlopAction(player *Player, r *rand.Rand, strength float64) PlayerAction {
+	canCheck := player.CurrentBet == g.BetToCall
+
+	// Bluffing: attempt with weak hands based on profile frequency.
+	if r.Float64() < player.Profile.BluffingFrequency && strength < float64(poker.OnePair) {
+		return g.bluffAction(canCheck)
+	}
+
+	// Strong hands: value bet/raise or slow play.
+	if strength >= float64(poker.TwoPair) {
+		return g.strongHandAction(player, r)
+	}
+
+	// Decent hands: play cheaply.
+	if strength >= float64(poker.OnePair) {
+		if canCheck {
+			return PlayerAction{Type: ActionCheck}
+		}
+		return PlayerAction{Type: ActionCall}
+	}
+
+	// Weak hands: check or fold based on pot odds.
+	return g.weakHandAction(player, canCheck)
+}
+
+func (g *Game) bluffAction(canCheck bool) PlayerAction {
+	if canCheck {
+		return PlayerAction{Type: ActionBet, Amount: g.Pot / 2}
+	}
+	return PlayerAction{Type: ActionRaise, Amount: g.minRaiseAmount() * 2}
+}
+
+func (g *Game) strongHandAction(player *Player, r *rand.Rand) PlayerAction {
+	if r.Float64() < player.Profile.AggressionFactor {
+		return PlayerAction{Type: ActionRaise, Amount: g.minRaiseAmount() * 2}
+	}
+	return PlayerAction{Type: ActionCall}
+}
+
+func (g *Game) weakHandAction(player *Player, canCheck bool) PlayerAction {
+	if canCheck {
+		return PlayerAction{Type: ActionCheck}
+	}
+	potOdds := float64(g.BetToCall) / float64(g.Pot+g.BetToCall)
+	if potOdds < player.Profile.BluffingFrequency*0.5 {
+		return PlayerAction{Type: ActionCall}
+	}
+	return PlayerAction{Type: ActionFold}
+}
+
+// Pre-flop hand strength scoring constants.
+const (
+	pairBonus          = 15.0 // Base bonus for holding a pair in the hole.
+	suitedBonus        = 2.0  // Bonus for having suited hole cards.
+	threeCardConnector = 5.0  // Bonus for three consecutive cards (e.g., 7-8-9).
+	twoCardConnector   = 2.0  // Bonus for two consecutive cards (e.g., 7-8).
+	highCloseBonus     = 1.0  // Bonus for high cards that are close in rank.
+	highCardGapMax     = 5    // Max gap between highest and lowest card for the high-close bonus.
+)
+
+// highCardPoints maps face card ranks to their pre-flop scoring value.
+var highCardPoints = map[poker.Rank]float64{
+	poker.Ace: 10, poker.King: 8, poker.Queen: 7, poker.Jack: 6, poker.Ten: 5,
 }
 
 // evaluateHandStrength calculates a numerical score for a player's hand to guide
-// AI decision-making. The evaluation method differs between pre-flop and post-flop.
-//
-// Post-flop, the score is simply the rank of the player's best 5-card hand.
-//
-// Pre-flop, it uses a custom scoring system to assess the potential of the hole
-// cards, considering:
-// - High card values (points for cards Ten and above).
-// - A significant bonus for pairs.
-// - A small bonus for suited cards.
-// - A bonus for connected cards (cards in sequence).
+// AI decision-making. Post-flop uses the actual hand rank; pre-flop uses a custom heuristic.
 func evaluateHandStrength(g *Game, player *Player) float64 {
-	// Post-Flop: The strength is the actual rank of the hand.
 	if g.Phase > PhasePreFlop {
 		highHand, _ := poker.EvaluateHand(player.Hand, g.CommunityCards, g.Rules)
 		if highHand != nil {
@@ -147,72 +157,87 @@ func evaluateHandStrength(g *Game, player *Player) float64 {
 		}
 		return 0
 	}
+	return evaluatePreFlopStrength(player.Hand)
+}
 
-	// Pre-Flop: Evaluate potential based on hole cards using a custom heuristic.
+// evaluatePreFlopStrength scores hole cards based on high-card values, pairs,
+// suited cards, and connectivity.
+func evaluatePreFlopStrength(hand []poker.Card) float64 {
 	var score float64
-	hand := player.Hand
 
-	// 1. High card points for cards Ten or higher.
-	rankPoints := map[poker.Rank]float64{
-		poker.Ace: 10, poker.King: 8, poker.Queen: 7, poker.Jack: 6, poker.Ten: 5,
-	}
+	// High card points.
 	for _, c := range hand {
-		score += rankPoints[c.Rank]
+		score += highCardPoints[c.Rank]
 	}
 
-	// 2. Add a large bonus for having a pair in the hole cards.
+	// Pair bonus.
+	score += calculatePairBonus(hand)
+
+	// Suited bonus.
+	if hasSuitedCards(hand) {
+		score += suitedBonus
+	}
+
+	// Connectivity bonus.
+	score += calculateConnectivityBonus(hand)
+
+	return score
+}
+
+// calculatePairBonus returns the bonus for holding a pair in the hole cards.
+func calculatePairBonus(hand []poker.Card) float64 {
 	if len(hand) >= 3 {
 		if hand[0].Rank == hand[1].Rank || hand[0].Rank == hand[2].Rank || hand[1].Rank == hand[2].Rank {
 			pairRank := hand[0].Rank
 			if hand[1].Rank == hand[2].Rank {
 				pairRank = hand[1].Rank
 			}
-			score += 15 + float64(pairRank) // Major bonus for pairs
+			return pairBonus + float64(pairRank)
 		}
 	} else if len(hand) == 2 {
 		if hand[0].Rank == hand[1].Rank {
-			score += 15 + float64(hand[0].Rank)
+			return pairBonus + float64(hand[0].Rank)
 		}
 	}
+	return 0
+}
 
-	// 3. Add a small bonus if any cards are suited.
+// hasSuitedCards checks if any two hole cards share a suit.
+func hasSuitedCards(hand []poker.Card) bool {
 	if len(hand) >= 3 {
-		if hand[0].Suit == hand[1].Suit || hand[0].Suit == hand[2].Suit || hand[1].Suit == hand[2].Suit {
-			score += 2
-		}
-	} else if len(hand) == 2 {
-		if hand[0].Suit == hand[1].Suit {
-			score += 2
-		}
+		return hand[0].Suit == hand[1].Suit || hand[0].Suit == hand[2].Suit || hand[1].Suit == hand[2].Suit
 	}
+	if len(hand) == 2 {
+		return hand[0].Suit == hand[1].Suit
+	}
+	return false
+}
 
-	// 4. Add a bonus for card connectivity (potential to make a straight).
+// calculateConnectivityBonus scores hole cards based on sequential rank proximity.
+func calculateConnectivityBonus(hand []poker.Card) float64 {
+	var bonus float64
 	if len(hand) >= 3 {
 		ranks := []poker.Rank{hand[0].Rank, hand[1].Rank, hand[2].Rank}
-		// Sort ranks in descending order for consistent gap calculation.
 		sort.Sort(byRank(ranks))
 
-		// Check for connectors.
-		if ranks[0] == ranks[1]+1 && ranks[1] == ranks[2]+1 { // 3-card straight
-			score += 5
-		} else if (ranks[0] == ranks[1]+1) || (ranks[1] == ranks[2]+1) { // 2-card connector
-			score += 2
+		if ranks[0] == ranks[1]+1 && ranks[1] == ranks[2]+1 {
+			bonus += threeCardConnector
+		} else if (ranks[0] == ranks[1]+1) || (ranks[1] == ranks[2]+1) {
+			bonus += twoCardConnector
 		}
 
-		// Bonus for cards being high and close together.
-		if ranks[0] >= poker.Ten && (ranks[0]-ranks[2] < 5) {
-			score += 1
+		if ranks[0] >= poker.Ten && (ranks[0]-ranks[2] < poker.Rank(highCardGapMax)) {
+			bonus += highCloseBonus
 		}
 	} else if len(hand) == 2 {
 		ranks := []poker.Rank{hand[0].Rank, hand[1].Rank}
 		sort.Sort(byRank(ranks))
-		if ranks[0] == ranks[1]+1 { // connectors
-			score += 2
+		if ranks[0] == ranks[1]+1 {
+			bonus += twoCardConnector
 		}
-		if ranks[0] >= poker.Ten && (int(ranks[0])-int(ranks[1]) < 5) {
-			score += 1
+		if ranks[0] >= poker.Ten && (int(ranks[0])-int(ranks[1]) < highCardGapMax) {
+			bonus += highCloseBonus
 		}
 	}
-
-	return score
+	return bonus
 }

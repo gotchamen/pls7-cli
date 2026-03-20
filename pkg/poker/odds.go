@@ -17,22 +17,23 @@ type OutsInfo struct {
 	OutsPerHandRank map[HandRank][]Card
 }
 
+// drawChecker is a function that checks if a specific draw exists and returns the out cards.
+type drawChecker func(holeCards []Card, communityCards []Card, seenCards map[Card]bool) (bool, []Card)
+
+// collectDrawOuts checks a draw type and, if found, adds its outs to the results.
+func collectDrawOuts(outsInfo *OutsInfo, allOutsMap map[Card]bool, rank HandRank, checker drawChecker, holeCards, communityCards []Card, seenCards map[Card]bool) {
+	if hasDraw, outs := checker(holeCards, communityCards, seenCards); hasDraw {
+		outsInfo.OutsPerHandRank[rank] = outs
+		logrus.Debugf("CalculateOuts: outsInfo.OutsPerHandRank updated: %+v", outsInfo.OutsPerHandRank)
+		for _, out := range outs {
+			allOutsMap[out] = true
+		}
+	}
+}
+
 // CalculateOuts determines which cards from the remaining deck would improve the
 // player's current hand. It checks for various draws (like flush, straight, etc.)
 // and returns an OutsInfo struct containing the identified "out" cards.
-//
-// An "out" is a card that, if drawn, will improve the player's hand to a likely
-// winning hand. This function checks for draws to hands that are better than the
-// player's current hand.
-//
-// Parameters:
-//   - holeCards: The player's private cards.
-//   - communityCards: The shared cards on the board.
-//   - gameRules: The ruleset for the game, used for evaluation.
-//
-// Returns:
-//   - A boolean indicating if any outs were found.
-//   - An OutsInfo struct detailing the outs.
 func CalculateOuts(holeCards []Card, communityCards []Card, gameRules *GameRules) (bool, *OutsInfo) {
 	currentHand, _ := EvaluateHand(holeCards, communityCards, gameRules)
 	if currentHand == nil {
@@ -47,117 +48,39 @@ func CalculateOuts(holeCards []Card, communityCards []Card, gameRules *GameRules
 	allOutsMap := make(map[Card]bool)
 
 	// Create a set of all cards currently in play to exclude them from potential outs.
-	seenCards := make(map[Card]bool)
-	for _, c := range holeCards {
-		seenCards[c] = true
-	}
-	for _, c := range communityCards {
-		seenCards[c] = true
-	}
+	seenCards := buildSeenCards(holeCards, communityCards)
 
 	// Check for draws in order from highest rank to lowest.
-	// We only check for draws to hands that are better than the current hand.
+	// Only check for draws to hands better than the current hand.
+	drawChecks := []struct {
+		rank    HandRank
+		checker drawChecker
+	}{
+		{SkipStraightFlush, hasSkipStraightFlushDraw},
+		{StraightFlush, hasStraightFlushDraw},
+		{FourOfAKind, hasFourOfAKindDraw},
+		{FullHouse, hasFullHouseDraw},
+		{Flush, hasFlushDraw},
+		{SkipStraight, hasSkipStraightDraw},
+		{Straight, hasStraightDraw},
+		{ThreeOfAKind, hasThreeOfAKindDraw},
+	}
 
-	// --- Skip Straight Flush ---
-	if currentHand.Rank < SkipStraightFlush {
-		if hasDraw, outs := hasSkipStraightFlushDraw(holeCards, communityCards, seenCards); hasDraw {
-			outsInfo.OutsPerHandRank[SkipStraightFlush] = outs
-			logrus.Debugf("CalculateOuts: outsInfo.OutsPerHandRank updated: %+v", outsInfo.OutsPerHandRank)
-			for _, out := range outs {
-				allOutsMap[out] = true
-			}
+	for _, dc := range drawChecks {
+		if currentHand.Rank < dc.rank {
+			collectDrawOuts(outsInfo, allOutsMap, dc.rank, dc.checker, holeCards, communityCards, seenCards)
 		}
 	}
 
-	// --- Straight Flush ---
-	if currentHand.Rank < StraightFlush {
-		if hasDraw, outs := hasStraightFlushDraw(holeCards, communityCards, seenCards); hasDraw {
-			outsInfo.OutsPerHandRank[StraightFlush] = outs
-			logrus.Debugf("CalculateOuts: outsInfo.OutsPerHandRank updated: %+v", outsInfo.OutsPerHandRank)
-			for _, out := range outs {
-				allOutsMap[out] = true
-			}
-		}
-	}
-
-	// --- Four of a Kind ---
-	if currentHand.Rank < FourOfAKind {
-		if hasDraw, outs := hasFourOfAKindDraw(holeCards, communityCards, seenCards); hasDraw {
-			outsInfo.OutsPerHandRank[FourOfAKind] = outs
-			logrus.Debugf("CalculateOuts: outsInfo.OutsPerHandRank updated: %+v", outsInfo.OutsPerHandRank)
-			for _, out := range outs {
-				allOutsMap[out] = true
-			}
-		}
-	}
-
-	// --- Full House ---
-	if currentHand.Rank < FullHouse {
-		if hasDraw, outs := hasFullHouseDraw(holeCards, communityCards, seenCards); hasDraw {
-			outsInfo.OutsPerHandRank[FullHouse] = outs
-			logrus.Debugf("CalculateOuts: outsInfo.OutsPerHandRank updated: %+v", outsInfo.OutsPerHandRank)
-			for _, out := range outs {
-				allOutsMap[out] = true
-			}
-		}
-	}
-
-	// --- Flush ---
-	if currentHand.Rank < Flush {
-		if hasDraw, outs := hasFlushDraw(holeCards, communityCards, seenCards); hasDraw {
-			outsInfo.OutsPerHandRank[Flush] = outs
-			logrus.Debugf("CalculateOuts: outsInfo.OutsPerHandRank updated: %+v", outsInfo.OutsPerHandRank)
-			for _, out := range outs {
-				allOutsMap[out] = true
-			}
-		}
-	}
-
-	// --- Skip Straight ---
-	if currentHand.Rank < SkipStraight {
-		if hasDraw, outs := hasSkipStraightDraw(holeCards, communityCards, seenCards); hasDraw {
-			outsInfo.OutsPerHandRank[SkipStraight] = outs
-			logrus.Debugf("CalculateOuts: outsInfo.OutsPerHandRank updated: %+v", outsInfo.OutsPerHandRank)
-			for _, out := range outs {
-				allOutsMap[out] = true
-			}
-		}
-	}
-
-	// --- Straight ---
-	if currentHand.Rank < Straight {
-		if hasDraw, outs := hasStraightDraw(holeCards, communityCards, seenCards); hasDraw {
-			outsInfo.OutsPerHandRank[Straight] = outs
-			logrus.Debugf("CalculateOuts: outsInfo.OutsPerHandRank updated: %+v", outsInfo.OutsPerHandRank)
-			for _, out := range outs {
-				allOutsMap[out] = true
-			}
-		}
-	}
-
-	// --- Three of a Kind ---
-	if currentHand.Rank < ThreeOfAKind {
-		if hasDraw, outs := hasThreeOfAKindDraw(holeCards, communityCards, seenCards); hasDraw {
-			outsInfo.OutsPerHandRank[ThreeOfAKind] = outs
-			logrus.Debugf("CalculateOuts: outsInfo.OutsPerHandRank updated: %+v", outsInfo.OutsPerHandRank)
-			for _, out := range outs {
-				allOutsMap[out] = true
-			}
-		}
-	}
-
-	// --- Low Hand ---
+	// Low hand draws (separate logic since the checker has a different signature).
 	logrus.Tracef("CalculateOuts: Checking for low hands draws, lowGameEnabled: %v", gameRules.LowHand.Enabled)
 	if gameRules.LowHand.Enabled {
 		logrus.Debugf("CalculateOuts: Low game enabled, checking for low hand draws")
-		if hasDraw, outs := hasLowHandDraw(holeCards, communityCards, seenCards, Rank(gameRules.LowHand.MaxRank)); hasDraw {
-			// Note: Low hand outs are stored under HighCard rank for simplicity.
-			outsInfo.OutsPerHandRank[HighCard] = outs
-			logrus.Debugf("CalculateOuts: outsInfo.OutsPerHandRank updated: %+v", outsInfo.OutsPerHandRank)
-			for _, out := range outs {
-				allOutsMap[out] = true
-			}
+		maxRank := Rank(gameRules.LowHand.MaxRank)
+		lowChecker := func(h []Card, c []Card, s map[Card]bool) (bool, []Card) {
+			return hasLowHandDraw(h, c, s, maxRank)
 		}
+		collectDrawOuts(outsInfo, allOutsMap, HighCard, lowChecker, holeCards, communityCards, seenCards)
 	}
 
 	// Consolidate all unique outs into a single slice.
@@ -166,6 +89,18 @@ func CalculateOuts(holeCards []Card, communityCards []Card, gameRules *GameRules
 	}
 
 	return len(outsInfo.AllOuts) > 0, outsInfo
+}
+
+// buildSeenCards creates a set of all cards currently in play.
+func buildSeenCards(holeCards, communityCards []Card) map[Card]bool {
+	seenCards := make(map[Card]bool)
+	for _, c := range holeCards {
+		seenCards[c] = true
+	}
+	for _, c := range communityCards {
+		seenCards[c] = true
+	}
+	return seenCards
 }
 
 // hasSkipStraightFlushDraw checks for a draw to a Skip Straight Flush.
