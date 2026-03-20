@@ -61,10 +61,11 @@ func (o *CLIObserver) OnPlayerAction(event *engine.ActionEvent) {
 		msg = fmt.Sprintf("%s bets %s.", event.PlayerName, cli.FormatNumber(event.Amount))
 	case engine.ActionRaise:
 		msg = fmt.Sprintf("%s raises to %s.", event.PlayerName, cli.FormatNumber(event.Amount))
+	default:
+		logrus.Warnf("CLIObserver received unhandled action type: %v", event.Action)
+		return
 	}
-	if msg != "" {
-		fmt.Println(msg)
-	}
+	fmt.Println(msg)
 }
 
 func runGame(cmd *cobra.Command, _ []string) {
