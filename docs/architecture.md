@@ -551,10 +551,11 @@ Save files are stored as JSON in the `saves/` directory with timestamp-based fil
 | `--rule` | `-r` | `pls7` | Game variant to use (pls7, pls, nlh, plo, plo8) |
 | `--difficulty` | `-d` | `medium` | AI difficulty level (easy, medium, hard) |
 | `--dev` | -- | `false` | Enable development mode with verbose logging |
+| `--debug-hand` | -- | `""` | Select debug hand by key (requires `--dev`). Use `debug-hands` command to list keys. |
 | `--outs` | -- | `false` | Show outs information for the player |
-| `--blind-up` | -- | `2` | Number of hands between blind increases (0 = disabled) |
+| `--big-blind` | -- | `1000` | Big blind amount (must be even, ≥ 2). Small blind is half. |
+| `--blind-up` | -- | `10` | Number of hands per blind level (0 = disabled) |
 | `--initial-chips` | -- | `300000` | Starting chip count for each player |
-| `--small-blind` | -- | `500` | Small blind amount (big blind = 2x) |
 | `--load` | `-l` | `false` | Load the most recent saved game |
 | `--load-file` | -- | `""` | Load a specific saved game file |
 | `--save-dir` | -- | `saves` | Directory for save files |
