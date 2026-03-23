@@ -133,3 +133,45 @@ func TestIsBettingRoundOver(t *testing.T) {
 		}
 	})
 }
+
+func TestIsRaisingMeaningless(t *testing.T) {
+	t.Run("All opponents all-in - raising is meaningless", func(t *testing.T) {
+		g := newGameForBettingTests([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
+		g.Players[0].Status = PlayerStatusPlaying
+		g.Players[1].Status = PlayerStatusAllIn
+		g.Players[2].Status = PlayerStatusAllIn
+		if !g.IsRaisingMeaningless() {
+			t.Error("Expected raising to be meaningless when all opponents are all-in")
+		}
+	})
+
+	t.Run("All opponents folded or all-in - raising is meaningless", func(t *testing.T) {
+		g := newGameForBettingTests([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
+		g.Players[0].Status = PlayerStatusPlaying
+		g.Players[1].Status = PlayerStatusFolded
+		g.Players[2].Status = PlayerStatusAllIn
+		if !g.IsRaisingMeaningless() {
+			t.Error("Expected raising to be meaningless when opponents are folded or all-in")
+		}
+	})
+
+	t.Run("An opponent is still playing - raising is meaningful", func(t *testing.T) {
+		g := newGameForBettingTests([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
+		g.Players[0].Status = PlayerStatusPlaying
+		g.Players[1].Status = PlayerStatusPlaying
+		g.Players[2].Status = PlayerStatusAllIn
+		if g.IsRaisingMeaningless() {
+			t.Error("Expected raising to be meaningful when an opponent is still playing")
+		}
+	})
+
+	t.Run("All players playing - raising is meaningful", func(t *testing.T) {
+		g := newGameForBettingTests([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
+		g.Players[0].Status = PlayerStatusPlaying
+		g.Players[1].Status = PlayerStatusPlaying
+		g.Players[2].Status = PlayerStatusPlaying
+		if g.IsRaisingMeaningless() {
+			t.Error("Expected raising to be meaningful when all players are still playing")
+		}
+	})
+}

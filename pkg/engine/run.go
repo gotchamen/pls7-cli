@@ -283,6 +283,14 @@ func (g *Game) dealCommunityCards(n int) {
 	}
 }
 
+// IsRaisingMeaningless returns true when the current player is the only one
+// with PlayerStatusPlaying (all others are folded, all-in, or eliminated).
+// In this case, betting or raising has no strategic value because no opponent
+// can respond.
+func (g *Game) IsRaisingMeaningless() bool {
+	return g.CountPlayersAbleToAct() <= 1
+}
+
 // isBettingActionRequired checks if a betting round is necessary. A round can be
 // skipped if all but one player is all-in.
 func (g *Game) isBettingActionRequired() bool {

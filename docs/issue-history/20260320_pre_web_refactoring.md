@@ -190,6 +190,31 @@
 - [x] `go build -v ./...` 성공 확인
 - [x] `go test -v ./...` 전체 통과 확인
 
+### Phase 5: UX 개선 — 불필요한 액션 옵션 제거
+
+**목표**: 모든 상대가 all-in 또는 folded일 때 의미 없는 bet/raise 옵션을 숨겨 플레이어 경험을 개선한다.
+
+**배경**:
+- 테스트 플레이 중 발견: 나 외에 모든 상대가 all-in인 상황에서 bet/raise 옵션이 표시됨
+- 상대가 응답할 수 없으므로 bet/raise는 전략적 의미가 없음
+- check(call) or fold만 제공하는 것이 올바른 UX
+
+**작업 내용**:
+1. `pkg/engine/run.go`에 `IsRaisingMeaningless()` 메서드 추가
+   - `CountPlayersAbleToAct() <= 1`이면 true (현재 플레이어만 Playing 상태)
+2. `internal/cli/input.go`의 `PromptForAction`에서 해당 조건 시 bet/raise 옵션 제거
+   - check 가능 시: `chec(k), (f)old` (bet 제거)
+   - call 필요 시: `(c)all N, (f)old` (raise 제거)
+   - "b", "r" 입력도 해당 조건에서 무시
+
+**체크리스트**:
+
+- [x] `pkg/engine/run.go`에 `IsRaisingMeaningless()` 메서드 추가
+- [x] `pkg/engine/betting_test.go`에 `TestIsRaisingMeaningless` 4개 서브테스트 추가
+- [x] `internal/cli/input.go`에서 `IsRaisingMeaningless()` 조건으로 bet/raise 옵션 숨김
+- [x] `go build -v ./...` 성공 확인
+- [x] `go test -v ./...` 전체 통과 확인
+
 ---
 
 ## 다음 작업 예고: 포커 엔진 핵심 로직 재설계
