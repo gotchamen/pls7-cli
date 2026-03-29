@@ -184,12 +184,10 @@ func clearScreen() {
 	fmt.Print("\033[H\033[2J")
 }
 
-func FormatShowdownResults(g *engine.Game) []string {
+func FormatShowdownResults(g *engine.Game, distributionResults []engine.DistributionResult) []string {
 	var outputLines []string
 	outputLines = append(outputLines, "\n--- SHOWDOWN ---")
 	outputLines = append(outputLines, fmt.Sprintf("Community Cards: %s", g.CommunityCards))
-
-	distributionResults := g.DistributePot()
 
 	winnerMap := make(map[string][]string)
 	for _, result := range distributionResults {

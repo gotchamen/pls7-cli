@@ -151,8 +151,8 @@ graph TD
 주요 구성 요소:
 - **`CombinedActionProvider`**: `CLIActionProvider`(사람)와 `CPUActionProvider`(AI)를 플레이어 타입에 따라 라우팅
 - **메인 게임 루프**: `StartNewHand` -> `PrepareNewBettingRound` -> 턴 루프 -> `Advance` -> `DistributePot` -> `CleanupHand`
-- **CLI 플래그**: `--rule`, `--difficulty`, `--dev`, `--outs`, `--blind-up`, `--initial-chips`, `--small-blind`, `--load`, `--load-file`, `--save-dir`
-- **서브커맨드**: `saves list`, `saves validate`, `saves delete`
+- **CLI 플래그**: `--rule`, `--difficulty`, `--dev`, `--debug-hand`, `--outs`, `--big-blind`, `--blind-up`, `--initial-chips`, `--load`, `--load-file`, `--save-dir`
+- **서브커맨드**: `saves list`, `saves validate`, `saves delete`, `debug-hands`
 
 ### `internal/cli` -- 터미널 UI 계층
 
@@ -768,9 +768,10 @@ go run main.go                           # 기본값: PLS7, Medium 난이도
 go run main.go -r nlh -d easy            # NLH 변형, Easy 난이도
 go run main.go -r plo8 -d hard           # PLO8 변형, Hard 난이도
 go run main.go --initial-chips 500000    # 초기 칩 50만
-go run main.go --small-blind 1000        # 스몰 블라인드 1000
+go run main.go --big-blind 2000          # 빅 블라인드 2000 (스몰 블라인드 자동 1000)
 go run main.go --blind-up 5             # 5핸드마다 블라인드 인상
 go run main.go --dev                     # 개발 모드 (디버그 핸드 + 상세 로그)
+go run main.go --dev --debug-hand KQJTds -r plo  # 특정 디버그 핸드로 PLO 실행
 go run main.go --outs                    # 아웃 카드 표시
 go run main.go --load                    # 최근 저장 게임 불러오기
 go run main.go --load-file save_20250101 # 특정 파일 불러오기
@@ -784,6 +785,13 @@ go run main.go saves validate <filename> # 저장 파일 유효성 검사
 go run main.go saves delete <filename>   # 저장 파일 삭제
 ```
 
+### 디버그 핸드 조회
+
+```bash
+go run main.go debug-hands               # 전체 변형별 디버그 핸드 목록
+go run main.go debug-hands -r plo        # PLO 변형만 필터
+```
+
 ### CLI 플래그 정리
 
 | 플래그 | 축약 | 기본값 | 설명 |
@@ -791,10 +799,11 @@ go run main.go saves delete <filename>   # 저장 파일 삭제
 | `--rule` | `-r` | `pls7` | 게임 변형 (pls7, pls, nlh, plo, plo8) |
 | `--difficulty` | `-d` | `medium` | AI 난이도 (easy, medium, hard) |
 | `--dev` | - | `false` | 개발 모드 (상세 로그, 디버그 핸드) |
+| `--debug-hand` | - | `""` | 디버그 핸드 키 선택 (`--dev` 필요). `debug-hands` 커맨드로 키 목록 확인 |
 | `--outs` | - | `false` | 아웃 카드 표시 |
-| `--blind-up` | - | `2` | 블라인드 인상 간격 (0 = 비활성) |
+| `--big-blind` | - | `1000` | 빅 블라인드 (짝수, ≥ 2). 스몰 블라인드는 절반 자동 계산 |
+| `--blind-up` | - | `10` | 블라인드 인상 간격 (0 = 비활성) |
 | `--initial-chips` | - | `300000` | 초기 칩 |
-| `--small-blind` | - | `500` | 스몰 블라인드 |
 | `--load` | `-l` | `false` | 저장 게임 불러오기 |
 | `--load-file` | - | `""` | 특정 저장 파일 불러오기 |
 | `--save-dir` | - | `saves` | 저장 디렉토리 경로 |

@@ -120,14 +120,15 @@ go run main.go saves [list|validate|delete] [args]
 |------|:-----:|------|---------|-------------|
 | `--rule` | `-r` | string | `pls7` | Game variant (`pls7`, `pls`, `nlh`, `plo`, `plo8`) |
 | `--difficulty` | `-d` | string | `medium` | AI difficulty (`easy`, `medium`, `hard`) |
-| `--blind-up` | | int | `2` | Hands between blind increases (`0` = disabled) |
+| `--big-blind` | | int | `1000` | Big blind amount (must be even, ≥ 2). Small blind is half. |
+| `--blind-up` | | int | `10` | Hands per blind level (`0` = disabled) |
 | `--dev` | | bool | `false` | Development mode with verbose logging |
+| `--debug-hand` | | string | `""` | Select debug hand by key (requires `--dev`). Use `debug-hands` command to list keys. |
 | `--outs` | | bool | `false` | Show hand outs for the human player |
 | `--load` | `-l` | bool | `false` | Load the most recent saved game |
 | `--load-file` | | string | `""` | Load a specific saved game file |
 | `--save-dir` | | string | `saves` | Directory for save files |
 | `--initial-chips` | | int | `300000` | Starting chips per player |
-| `--small-blind` | | int | `500` | Small blind amount (big blind = 2x) |
 
 ### Examples
 
@@ -148,7 +149,7 @@ go run main.go -r plo -d hard
 go run main.go -r plo8
 
 # Custom chip stack and blinds
-go run main.go --initial-chips 500000 --small-blind 1000
+go run main.go --initial-chips 500000 --big-blind 2000
 
 # Disable blind increases
 go run main.go --blind-up 0

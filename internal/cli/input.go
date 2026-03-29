@@ -22,8 +22,14 @@ func PromptForAction(g *engine.Game) engine.PlayerAction {
 		var prompt strings.Builder
 		prompt.WriteString("Choose your action: ")
 
+		raisingMeaningless := g.IsRaisingMeaningless()
+
 		if canCheck {
-			prompt.WriteString("chec(k), (b)et, (f)old > ")
+			if raisingMeaningless {
+				prompt.WriteString("chec(k), (f)old > ")
+			} else {
+				prompt.WriteString("chec(k), (b)et, (f)old > ")
+			}
 		} else {
 			// If amountToCall is negative, it means remaining players have bet all-in with less than the current bet.
 			// So the player does not need to act anything, call.
@@ -32,10 +38,12 @@ func PromptForAction(g *engine.Game) engine.PlayerAction {
 			}
 
 			prompt.WriteString(fmt.Sprintf("(c)all %s, ", FormatNumber(amountToCall)))
-			// Only show raise option if the player has enough chips to make a valid raise.
-			minRaise, _ := g.CalculateBettingLimits()
-			if player.Chips > amountToCall && player.CurrentBet+player.Chips >= minRaise {
-				prompt.WriteString("(r)aise, ")
+			// Only show raise option if the player has enough chips and raising is meaningful.
+			if !raisingMeaningless {
+				minRaise, _ := g.CalculateBettingLimits()
+				if player.Chips > amountToCall && player.CurrentBet+player.Chips >= minRaise {
+					prompt.WriteString("(r)aise, ")
+				}
 			}
 			prompt.WriteString("(f)old > ")
 		}
@@ -57,11 +65,11 @@ func PromptForAction(g *engine.Game) engine.PlayerAction {
 				return engine.PlayerAction{Type: engine.ActionCall}
 			}
 		case "b":
-			if canCheck {
+			if canCheck && !raisingMeaningless {
 				return promptForAmount(g, engine.ActionBet)
 			}
 		case "r":
-			if !canCheck {
+			if !canCheck && !raisingMeaningless {
 				return promptForAmount(g, engine.ActionRaise)
 			}
 		}

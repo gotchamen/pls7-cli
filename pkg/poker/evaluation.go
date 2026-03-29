@@ -323,6 +323,25 @@ func getLowHandHighValues(cards []Card) []Rank {
 	}
 }
 
+// handChecker is a function that checks if the given hand analysis matches a specific hand rank.
+type handChecker func(analysis *handAnalysis) *HandResult
+
+// handCheckers maps each HandRank to its checker function.
+var handCheckers = map[HandRank]handChecker{
+	RoyalFlush:        checkRoyalFlush,
+	SkipStraightFlush: checkSkipStraightFlush,
+	StraightFlush:     checkStraightFlush,
+	FourOfAKind:       checkFourOfAKind,
+	FullHouse:         checkFullHouse,
+	Flush:             checkFlush,
+	SkipStraight:      checkSkipStraight,
+	Straight:          checkStraight,
+	ThreeOfAKind:      checkThreeOfAKind,
+	TwoPair:           checkTwoPair,
+	OnePair:           checkOnePair,
+	HighCard:          checkHighCard,
+}
+
 // evaluateSingleHand takes exactly 5 cards and determines their rank.
 func evaluateSingleHand(cards []Card, gameRules *GameRules) *HandResult {
 	if len(cards) != 5 {
@@ -334,109 +353,129 @@ func evaluateSingleHand(cards []Card, gameRules *GameRules) *HandResult {
 	handRankOrder := getHandRanks(&gameRules.HandRankings)
 
 	for _, rank := range handRankOrder {
-		var currentHand *HandResult
-		switch rank {
-		case RoyalFlush:
-			if sfCards, ok := findStraightFlush(analysis); ok {
-				if sfCards[0].Rank == Ace {
-					currentHand = &HandResult{Rank: RoyalFlush, Cards: sfCards, HighValues: []Rank{sfCards[0].Rank}}
-					return currentHand
-				}
-			}
-		case SkipStraightFlush:
-			if ssfCards, ok := findSkipStraightFlush(analysis); ok {
-				currentHand = &HandResult{Rank: SkipStraightFlush, Cards: ssfCards, HighValues: []Rank{ssfCards[0].Rank}}
-				return currentHand
-			}
-		case StraightFlush:
-			if sfCards, ok := findStraightFlush(analysis); ok {
-				currentHand = &HandResult{Rank: StraightFlush, Cards: sfCards, HighValues: []Rank{sfCards[0].Rank}}
-				return currentHand
-			}
-		case FourOfAKind:
-			if quadRank, ok := findBestNOfAKind(analysis.rankCounts, 4); ok {
-				found, kickers := findKickers(analysis.cards, []Rank{quadRank}, 1)
-				if found {
-					quadCards := findCardsByRank(analysis.cards, quadRank, 4)
-					currentHand = &HandResult{Rank: FourOfAKind, Cards: append(quadCards, kickers...), HighValues: []Rank{quadRank, kickers[0].Rank}}
-					return currentHand
-				}
-			}
-		case FullHouse:
-			if tripleRank, pairRank, ok := findBestFullHouse(analysis.rankCounts); ok {
-				tripleCards := findCardsByRank(analysis.cards, tripleRank, 3)
-				pairCards := findCardsByRank(analysis.cards, pairRank, 2)
-				currentHand = &HandResult{Rank: FullHouse, Cards: append(tripleCards, pairCards...), HighValues: []Rank{tripleRank, pairRank}}
-				return currentHand
-			}
-		case Flush:
-			if flushCards, ok := findBestFlush(analysis); ok {
-				currentHand = &HandResult{
-					Rank:       Flush,
-					Cards:      flushCards,
-					HighValues: []Rank{flushCards[0].Rank, flushCards[1].Rank, flushCards[2].Rank, flushCards[3].Rank, flushCards[4].Rank},
-				}
-				return currentHand
-			}
-		case SkipStraight:
-			if ssCards, ok := findSkipStraight(analysis); ok {
-				currentHand = &HandResult{Rank: SkipStraight, Cards: ssCards, HighValues: []Rank{ssCards[0].Rank}}
-				return currentHand
-			}
-		case Straight:
-			if straightCards, ok := findBestStraight(analysis); ok {
-				currentHand = &HandResult{Rank: Straight, Cards: straightCards, HighValues: []Rank{straightCards[0].Rank}}
-				return currentHand
-			}
-		case ThreeOfAKind:
-			if tripleRank, ok := findBestNOfAKind(analysis.rankCounts, 3); ok {
-				found, kickers := findKickers(analysis.cards, []Rank{tripleRank}, 2)
-				if found {
-					tripleCards := findCardsByRank(analysis.cards, tripleRank, 3)
-					currentHand = &HandResult{
-						Rank:       ThreeOfAKind,
-						Cards:      append(tripleCards, kickers...),
-						HighValues: []Rank{tripleRank, kickers[0].Rank, kickers[1].Rank},
-					}
-					return currentHand
-				}
-			}
-		case TwoPair:
-			if highPair, lowPair, ok := findBestTwoPair(analysis.rankCounts); ok {
-				found, kickers := findKickers(analysis.cards, []Rank{highPair, lowPair}, 1)
-				if found {
-					highPairCards := findCardsByRank(analysis.cards, highPair, 2)
-					lowPairCards := findCardsByRank(analysis.cards, lowPair, 2)
-					allCards := append(highPairCards, lowPairCards...)
-					allCards = append(allCards, kickers...)
-					currentHand = &HandResult{Rank: TwoPair, Cards: allCards, HighValues: []Rank{highPair, lowPair, kickers[0].Rank}}
-					return currentHand
-				}
-			}
-		case OnePair:
-			if pairRank, ok := findBestNOfAKind(analysis.rankCounts, 2); ok {
-				found, kickers := findKickers(analysis.cards, []Rank{pairRank}, 3)
-				if found {
-					pairCards := findCardsByRank(analysis.cards, pairRank, 2)
-					currentHand = &HandResult{
-						Rank:       OnePair,
-						Cards:      append(pairCards, kickers...),
-						HighValues: []Rank{pairRank, kickers[0].Rank, kickers[1].Rank, kickers[2].Rank},
-					}
-					return currentHand
-				}
-			}
-		case HighCard:
-			return &HandResult{
-				Rank:  HighCard,
-				Cards: analysis.cards[:5],
-				HighValues: []Rank{
-					analysis.cards[0].Rank, analysis.cards[1].Rank, analysis.cards[2].Rank, analysis.cards[3].Rank, analysis.cards[4].Rank,
-				},
+		if checker, ok := handCheckers[rank]; ok {
+			if result := checker(analysis); result != nil {
+				return result
 			}
 		}
 	}
-	return nil // Should not be reached if HighCard is always possible
+	return nil
+}
+
+func checkRoyalFlush(analysis *handAnalysis) *HandResult {
+	if sfCards, ok := findStraightFlush(analysis); ok && sfCards[0].Rank == Ace {
+		return &HandResult{Rank: RoyalFlush, Cards: sfCards, HighValues: []Rank{sfCards[0].Rank}}
+	}
+	return nil
+}
+
+func checkSkipStraightFlush(analysis *handAnalysis) *HandResult {
+	if ssfCards, ok := findSkipStraightFlush(analysis); ok {
+		return &HandResult{Rank: SkipStraightFlush, Cards: ssfCards, HighValues: []Rank{ssfCards[0].Rank}}
+	}
+	return nil
+}
+
+func checkStraightFlush(analysis *handAnalysis) *HandResult {
+	if sfCards, ok := findStraightFlush(analysis); ok {
+		return &HandResult{Rank: StraightFlush, Cards: sfCards, HighValues: []Rank{sfCards[0].Rank}}
+	}
+	return nil
+}
+
+func checkFourOfAKind(analysis *handAnalysis) *HandResult {
+	if quadRank, ok := findBestNOfAKind(analysis.rankCounts, 4); ok {
+		if found, kickers := findKickers(analysis.cards, []Rank{quadRank}, 1); found {
+			quadCards := findCardsByRank(analysis.cards, quadRank, 4)
+			return &HandResult{Rank: FourOfAKind, Cards: append(quadCards, kickers...), HighValues: []Rank{quadRank, kickers[0].Rank}}
+		}
+	}
+	return nil
+}
+
+func checkFullHouse(analysis *handAnalysis) *HandResult {
+	if tripleRank, pairRank, ok := findBestFullHouse(analysis.rankCounts); ok {
+		tripleCards := findCardsByRank(analysis.cards, tripleRank, 3)
+		pairCards := findCardsByRank(analysis.cards, pairRank, 2)
+		return &HandResult{Rank: FullHouse, Cards: append(tripleCards, pairCards...), HighValues: []Rank{tripleRank, pairRank}}
+	}
+	return nil
+}
+
+func checkFlush(analysis *handAnalysis) *HandResult {
+	if flushCards, ok := findBestFlush(analysis); ok {
+		return &HandResult{
+			Rank:       Flush,
+			Cards:      flushCards,
+			HighValues: []Rank{flushCards[0].Rank, flushCards[1].Rank, flushCards[2].Rank, flushCards[3].Rank, flushCards[4].Rank},
+		}
+	}
+	return nil
+}
+
+func checkSkipStraight(analysis *handAnalysis) *HandResult {
+	if ssCards, ok := findSkipStraight(analysis); ok {
+		return &HandResult{Rank: SkipStraight, Cards: ssCards, HighValues: []Rank{ssCards[0].Rank}}
+	}
+	return nil
+}
+
+func checkStraight(analysis *handAnalysis) *HandResult {
+	if straightCards, ok := findBestStraight(analysis); ok {
+		return &HandResult{Rank: Straight, Cards: straightCards, HighValues: []Rank{straightCards[0].Rank}}
+	}
+	return nil
+}
+
+func checkThreeOfAKind(analysis *handAnalysis) *HandResult {
+	if tripleRank, ok := findBestNOfAKind(analysis.rankCounts, 3); ok {
+		if found, kickers := findKickers(analysis.cards, []Rank{tripleRank}, 2); found {
+			tripleCards := findCardsByRank(analysis.cards, tripleRank, 3)
+			return &HandResult{
+				Rank:       ThreeOfAKind,
+				Cards:      append(tripleCards, kickers...),
+				HighValues: []Rank{tripleRank, kickers[0].Rank, kickers[1].Rank},
+			}
+		}
+	}
+	return nil
+}
+
+func checkTwoPair(analysis *handAnalysis) *HandResult {
+	if highPair, lowPair, ok := findBestTwoPair(analysis.rankCounts); ok {
+		if found, kickers := findKickers(analysis.cards, []Rank{highPair, lowPair}, 1); found {
+			highPairCards := findCardsByRank(analysis.cards, highPair, 2)
+			lowPairCards := findCardsByRank(analysis.cards, lowPair, 2)
+			allCards := append(highPairCards, lowPairCards...)
+			allCards = append(allCards, kickers...)
+			return &HandResult{Rank: TwoPair, Cards: allCards, HighValues: []Rank{highPair, lowPair, kickers[0].Rank}}
+		}
+	}
+	return nil
+}
+
+func checkOnePair(analysis *handAnalysis) *HandResult {
+	if pairRank, ok := findBestNOfAKind(analysis.rankCounts, 2); ok {
+		if found, kickers := findKickers(analysis.cards, []Rank{pairRank}, 3); found {
+			pairCards := findCardsByRank(analysis.cards, pairRank, 2)
+			return &HandResult{
+				Rank:       OnePair,
+				Cards:      append(pairCards, kickers...),
+				HighValues: []Rank{pairRank, kickers[0].Rank, kickers[1].Rank, kickers[2].Rank},
+			}
+		}
+	}
+	return nil
+}
+
+func checkHighCard(analysis *handAnalysis) *HandResult {
+	return &HandResult{
+		Rank:  HighCard,
+		Cards: analysis.cards[:5],
+		HighValues: []Rank{
+			analysis.cards[0].Rank, analysis.cards[1].Rank, analysis.cards[2].Rank, analysis.cards[3].Rank, analysis.cards[4].Rank,
+		},
+	}
 }
 
 // findSkipStraightFlush checks for a Skip Straight Flush. It first identifies a

@@ -54,29 +54,39 @@ func (g *Game) AwardPotToLastPlayer() []DistributionResult {
 // DistributePot is the core function for calculating and awarding the pot(s) at
 // the end of a hand. It correctly handles complex scenarios including multiple
 // side pots for all-in players and High-Low split pots.
-//
-// The process is as follows:
-//  1. It identifies all players who contributed to the pot and are eligible for a showdown.
-//  2. It creates "bet tiers" based on the unique amounts players have bet. For example,
-//     if P1 bets 100, P2 bets 200, and P3 bets 200, the tiers are 100 and 200.
-//  3. It iterates through these tiers to build one or more `PotTier` objects (side pots).
-//     The first pot tier's amount is calculated from the lowest all-in amount, and only
-//     players who bet at least that much are eligible. Subsequent tiers are built from
-//     the remaining amounts.
-//  4. It then distributes each `PotTier` individually. For each pot, it finds the best
-//     high hand and, if applicable, the best low hand among the eligible players.
-//  5. It splits the pot tier's amount among the high and low winners (or scoops to high
-//     if no qualifying low). It handles ties by splitting the shares further.
-//  6. Finally, it aggregates the results into a slice of DistributionResult for display.
 func (g *Game) DistributePot() []DistributionResult {
-	var results []DistributionResult
 	showdownPlayers := g.getShowdownPlayers()
-
 	if len(showdownPlayers) == 0 {
-		return results
+		return nil
 	}
 
-	// Create a list of all players who contributed to the pot.
+	pots := g.buildPotTiers(showdownPlayers)
+
+	winnerChipMap := make(map[string]int)
+	winnerHandDescMap := make(map[string]string)
+
+	for _, pot := range pots {
+		g.distributeSinglePotTier(pot, winnerChipMap, winnerHandDescMap)
+	}
+
+	// Aggregate the winnings into the final result list.
+	var results []DistributionResult
+	for name, amount := range winnerChipMap {
+		results = append(results, DistributionResult{
+			PlayerName: name,
+			AmountWon:  amount,
+			HandDesc:   winnerHandDescMap[name],
+		})
+	}
+
+	g.Pot = 0
+	logrus.Debugf("DistributePot: Final results: %+v", results)
+	return results
+}
+
+// buildPotTiers creates the main pot and side pots based on all-in bet tiers.
+func (g *Game) buildPotTiers(showdownPlayers []*Player) []PotTier {
+	// Collect all contributors (including folded players who bet).
 	var allContributors []*Player
 	for _, p := range g.Players {
 		if p.Status != PlayerStatusEliminated && p.TotalBetInHand > 0 {
@@ -84,32 +94,28 @@ func (g *Game) DistributePot() []DistributionResult {
 		}
 	}
 
-	// Create a set of unique bet amounts from all contributors to define the tiers.
-	betTiers := make(map[int]bool)
+	// Create sorted unique bet tiers.
+	betTierSet := make(map[int]bool)
 	for _, p := range allContributors {
-		betTiers[p.TotalBetInHand] = true
+		betTierSet[p.TotalBetInHand] = true
 	}
-
-	// Create a sorted list of the bet tiers (from smallest to largest bet).
 	var sortedTiers []int
-	for bet := range betTiers {
+	for bet := range betTierSet {
 		sortedTiers = append(sortedTiers, bet)
 	}
 	sort.Ints(sortedTiers)
 
+	logrus.Debugf("DistributePot: Initial Pot: %d, All Contributors: %v, Bet Tiers: %v", g.Pot, getPlayerNames(allContributors), sortedTiers)
+
 	var pots []PotTier
 	lastBet := 0
 
-	logrus.Debugf("DistributePot: Initial Pot: %d, All Contributors: %v, Bet Tiers: %v", g.Pot, getPlayerNames(allContributors), sortedTiers)
-
-	// Build the main and side pots based on the bet tiers.
 	for _, tierBet := range sortedTiers {
 		contribution := tierBet - lastBet
 		if contribution <= 0 {
 			continue
 		}
 
-		// Count players who contributed at least this much.
 		numPlayersInTier := 0
 		for _, p := range allContributors {
 			if p.TotalBetInHand >= tierBet {
@@ -118,7 +124,6 @@ func (g *Game) DistributePot() []DistributionResult {
 		}
 		tierAmount := contribution * numPlayersInTier
 
-		// Find which of the showdown players are eligible for this tier.
 		var eligiblePlayers []*Player
 		for _, sp := range showdownPlayers {
 			if sp.TotalBetInHand >= tierBet {
@@ -132,101 +137,83 @@ func (g *Game) DistributePot() []DistributionResult {
 				Players: eligiblePlayers,
 				MaxBet:  tierBet,
 			})
-			logrus.Debugf(
-				"  New PotTier created: Amount: %d, MaxBet: %d, Players: %v",
-				tierAmount, tierBet, getPlayerNames(eligiblePlayers),
-			)
+			logrus.Debugf("  New PotTier created: Amount: %d, MaxBet: %d, Players: %v",
+				tierAmount, tierBet, getPlayerNames(eligiblePlayers))
 			if len(eligiblePlayers) == 1 {
-				logrus.Warnf(
-					"  Single player %s eligible for PotTier with amount %d", eligiblePlayers[0].Name, tierAmount,
-				)
+				logrus.Warnf("  Single player %s eligible for PotTier with amount %d", eligiblePlayers[0].Name, tierAmount)
 			}
 		}
 		lastBet = tierBet
 	}
+	return pots
+}
 
-	winnerChipMap := make(map[string]int)
-	winnerHandDescMap := make(map[string]string)
+// distributeSinglePotTier distributes a single pot tier to the winner(s),
+// handling Hi-Lo splits when applicable.
+func (g *Game) distributeSinglePotTier(pot PotTier, winnerChipMap map[string]int, winnerHandDescMap map[string]string) {
+	logrus.Debugf("Distributing PotTier: Amount: %d, MaxBet: %d, Eligible Players: %v", pot.Amount, pot.MaxBet, getPlayerNames(pot.Players))
 
-	// Distribute each pot tier, starting with the main pot.
-	for _, pot := range pots {
-		logrus.Debugf("Distributing PotTier: Amount: %d, MaxBet: %d, Eligible Players: %v", pot.Amount, pot.MaxBet, getPlayerNames(pot.Players))
-		highWinners, bestHighHand := findBestHighHand(pot.Players, g)
-		lowWinners, bestLowHand := findBestLowHand(pot.Players, g)
-		logrus.Debugf(
-			"DistributePot: High Winners: %v, Best High Hand: %s",
-			getPlayerNames(highWinners), bestHighHand,
-		)
-		logrus.Debugf(
-			"DistributePot: Low Winners: %v, Best Low Hand: %s",
-			getPlayerNames(lowWinners), bestLowHand,
-		)
+	highWinners, bestHighHand := findBestHighHand(pot.Players, g)
+	lowWinners, bestLowHand := findBestLowHand(pot.Players, g)
+	logrus.Debugf("DistributePot: High Winners: %v, Best High Hand: %s", getPlayerNames(highWinners), bestHighHand)
+	logrus.Debugf("DistributePot: Low Winners: %v, Best Low Hand: %s", getPlayerNames(lowWinners), bestLowHand)
 
-		// Check for a Hi-Lo split if the game rules allow it and there's a qualifying low hand.
-		if g.Rules.LowHand.Enabled && len(lowWinners) > 0 {
-			// Split the pot between high and low winners.
-			lowPot := pot.Amount / 2
-			highPot := pot.Amount - lowPot
+	if g.Rules.LowHand.Enabled && len(lowWinners) > 0 {
+		g.distributeHiLoPot(pot, highWinners, bestHighHand, lowWinners, bestLowHand, winnerChipMap, winnerHandDescMap)
+	} else {
+		distributeHighOnlyPot(pot, highWinners, bestHighHand, winnerChipMap, winnerHandDescMap)
+	}
+}
 
-			logrus.Debugf("  Split Pot: lowPot: %d, highPot: %d", lowPot, highPot)
+// distributeHiLoPot splits a pot tier between high and low winners.
+func (g *Game) distributeHiLoPot(pot PotTier, highWinners []*Player, bestHighHand *poker.HandResult, lowWinners []*Player, bestLowHand *poker.HandResult, winnerChipMap map[string]int, winnerHandDescMap map[string]string) {
+	lowPot := pot.Amount / 2
+	highPot := pot.Amount - lowPot
+	logrus.Debugf("  Split Pot: lowPot: %d, highPot: %d", lowPot, highPot)
 
-			// Distribute the low half of the pot.
-			lowShare := lowPot / len(lowWinners)
-			var lowHandRanks []string
-			for _, c := range bestLowHand.Cards {
-				lowHandRanks = append(lowHandRanks, c.Rank.String())
-			}
-			if len(lowHandRanks) > 0 && lowHandRanks[0] == poker.Ace.String() {
-				lowHandRanks = append(lowHandRanks[1:], lowHandRanks[0])
-			}
-			lowHandDesc := fmt.Sprintf("Low: %s-High", strings.Join(lowHandRanks, "-"))
+	// Distribute the low half.
+	lowShare := lowPot / len(lowWinners)
+	var lowHandRanks []string
+	for _, c := range bestLowHand.Cards {
+		lowHandRanks = append(lowHandRanks, c.Rank.String())
+	}
+	if len(lowHandRanks) > 0 && lowHandRanks[0] == poker.Ace.String() {
+		lowHandRanks = append(lowHandRanks[1:], lowHandRanks[0])
+	}
+	lowHandDesc := fmt.Sprintf("Low: %s-High", strings.Join(lowHandRanks, "-"))
 
-			for _, winner := range lowWinners {
-				winner.Chips += lowShare
-				winnerChipMap[winner.Name] += lowShare
-				winnerHandDescMap[winner.Name] = lowHandDesc
-				logrus.Debugf("    %s wins %d from low pot", winner.Name, lowShare)
-			}
+	for _, winner := range lowWinners {
+		winner.Chips += lowShare
+		winnerChipMap[winner.Name] += lowShare
+		winnerHandDescMap[winner.Name] = lowHandDesc
+		logrus.Debugf("    %s wins %d from low pot", winner.Name, lowShare)
+	}
 
-			// Distribute the high half of the pot.
-			highShare := highPot / len(highWinners)
-			highHandDesc := fmt.Sprintf("High: %s", bestHighHand.String())
-			for _, winner := range highWinners {
-				winner.Chips += highShare
-				winnerChipMap[winner.Name] += highShare
-				// If a player won both high and low, they "scoop" the pot.
-				if desc, exists := winnerHandDescMap[winner.Name]; exists && strings.HasPrefix(desc, "Low") {
-					winnerHandDescMap[winner.Name] = fmt.Sprintf("Scoop! %s, %s", highHandDesc, desc)
-				} else {
-					winnerHandDescMap[winner.Name] = highHandDesc
-				}
-				logrus.Debugf("    %s wins %d from high pot", winner.Name, highShare)
-			}
+	// Distribute the high half.
+	highShare := highPot / len(highWinners)
+	highHandDesc := fmt.Sprintf("High: %s", bestHighHand.String())
+	for _, winner := range highWinners {
+		winner.Chips += highShare
+		winnerChipMap[winner.Name] += highShare
+		if desc, exists := winnerHandDescMap[winner.Name]; exists && strings.HasPrefix(desc, "Low") {
+			winnerHandDescMap[winner.Name] = fmt.Sprintf("Scoop! %s, %s", highHandDesc, desc)
 		} else {
-			// If no qualifying low hand, the high hand "scoops" the entire pot.
-			highShare := pot.Amount / len(highWinners)
-			highHandDesc := fmt.Sprintf("High: %s (Scoop)", bestHighHand.String())
-			for _, winner := range highWinners {
-				winner.Chips += highShare
-				winnerChipMap[winner.Name] += highShare
-				winnerHandDescMap[winner.Name] = highHandDesc
-				logrus.Debugf("    %s scoops %d from pot", winner.Name, highShare)
-			}
+			winnerHandDescMap[winner.Name] = highHandDesc
 		}
+		logrus.Debugf("    %s wins %d from high pot", winner.Name, highShare)
 	}
+}
 
-	// Aggregate the winnings into the final result list.
-	for name, amount := range winnerChipMap {
-		results = append(results, DistributionResult{
-			PlayerName: name,
-			AmountWon:  amount,
-			HandDesc:   winnerHandDescMap[name],
-		})
+// distributeHighOnlyPot awards the entire pot tier to the high hand winner(s).
+func distributeHighOnlyPot(pot PotTier, highWinners []*Player, bestHighHand *poker.HandResult, winnerChipMap map[string]int, winnerHandDescMap map[string]string) {
+	highShare := pot.Amount / len(highWinners)
+	highHandDesc := fmt.Sprintf("High: %s (Scoop)", bestHighHand.String())
+	for _, winner := range highWinners {
+		winner.Chips += highShare
+		winnerChipMap[winner.Name] += highShare
+		winnerHandDescMap[winner.Name] = highHandDesc
+		logrus.Debugf("    %s scoops %d from pot", winner.Name, highShare)
 	}
-
-	g.Pot = 0
-	logrus.Debugf("DistributePot: Final results: %+v", results)
-	return results
 }
 
 // getShowdownPlayers returns a slice of players who are still active in the

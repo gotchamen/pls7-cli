@@ -21,29 +21,25 @@ func (p *TestActionProvider) GetAction(_ *Game, _ *Player, _ *rand.Rand) PlayerA
 	return PlayerAction{Type: ActionFold} // Default to fold
 }
 
-func newGameForBettingTests(playerNames []string, initialChips int, smallBlind int, bigBlind int) *Game {
-	rules := &poker.GameRules{
-		Abbreviation: "PLS",
-		HoleCards:    poker.HoleCardRules{Count: 3},
-		LowHand:      poker.LowHandRules{Enabled: false},
-		BettingLimit: "pot_limit",
+// newGameForBettingTests creates a game for betting tests.
+// If ruleAbbr is omitted, defaults to "PLS".
+func newGameForBettingTests(playerNames []string, initialChips int, smallBlind int, bigBlind int, ruleAbbr ...string) *Game {
+	abbr := "PLS"
+	if len(ruleAbbr) > 0 {
+		abbr = ruleAbbr[0]
 	}
-	return NewGame(playerNames, initialChips, smallBlind, bigBlind, DifficultyMedium, rules, true, false, 0)
-}
 
-// newGameForBettingTestsWithRules creates a game with a specific rule abbreviation.
-func newGameForBettingTestsWithRules(playerNames []string, initialChips int, smallBlind int, bigBlind int, ruleAbbr string) *Game {
 	rules := &poker.GameRules{
-		Abbreviation: ruleAbbr,
+		Abbreviation: abbr,
 	}
-	switch ruleAbbr {
+	switch abbr {
 	case "NLH":
 		rules.HoleCards = poker.HoleCardRules{Count: 2}
 		rules.LowHand = poker.LowHandRules{Enabled: false}
 		rules.BettingLimit = "no_limit"
 	case "PLS7":
 		rules.HoleCards = poker.HoleCardRules{Count: 3}
-		rules.LowHand = poker.LowHandRules{Enabled: ruleAbbr == "PLS7", MaxRank: 7}
+		rules.LowHand = poker.LowHandRules{Enabled: true, MaxRank: 7}
 		rules.BettingLimit = "pot_limit"
 	default: // PLS
 		rules.HoleCards = poker.HoleCardRules{Count: 3}
@@ -55,7 +51,7 @@ func newGameForBettingTestsWithRules(playerNames []string, initialChips int, sma
 
 // all players have matched the bet, isBettingActionRequired should return false.
 func TestIsBettingActionRequired_MatchedBets_False(t *testing.T) {
-	g := newGameForBettingTestsWithRules([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
+	g := newGameForBettingTests([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
 	g.StartNewHand()
 	// Force a state where all active players have matched the bet
 	g.BetToCall = g.BigBlind
@@ -72,7 +68,7 @@ func TestIsBettingActionRequired_MatchedBets_False(t *testing.T) {
 
 // when a player still needs to call, isBettingActionRequired should return true.
 func TestIsBettingActionRequired_PlayerNeedsToCall_True(t *testing.T) {
-	g := newGameForBettingTestsWithRules([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
+	g := newGameForBettingTests([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
 	g.StartNewHand()
 	g.BetToCall = g.BigBlind
 	// YOU still needs to call
@@ -91,7 +87,7 @@ func TestIsBettingActionRequired_PlayerNeedsToCall_True(t *testing.T) {
 
 func TestIsBettingRoundOver(t *testing.T) {
 	t.Run("Round not over - bets not matched", func(t *testing.T) {
-		g := newGameForBettingTestsWithRules([]string{"YOU", "CPU1"}, 10000, 500, 1000, "NLH")
+		g := newGameForBettingTests([]string{"YOU", "CPU1"}, 10000, 500, 1000, "NLH")
 		g.Players[0].CurrentBet = 100
 		g.Players[1].CurrentBet = 200
 		g.BetToCall = 200
@@ -102,7 +98,7 @@ func TestIsBettingRoundOver(t *testing.T) {
 	})
 
 	t.Run("Round over - all bets matched", func(t *testing.T) {
-		g := newGameForBettingTestsWithRules([]string{"YOU", "CPU1"}, 10000, 500, 1000, "NLH")
+		g := newGameForBettingTests([]string{"YOU", "CPU1"}, 10000, 500, 1000, "NLH")
 		g.Players[0].Status = PlayerStatusPlaying
 		g.Players[1].Status = PlayerStatusPlaying
 		g.Players[0].CurrentBet = 200
@@ -115,7 +111,7 @@ func TestIsBettingRoundOver(t *testing.T) {
 	})
 
 	t.Run("Round over - one player left", func(t *testing.T) {
-		g := newGameForBettingTestsWithRules([]string{"YOU", "CPU1"}, 10000, 500, 1000, "NLH")
+		g := newGameForBettingTests([]string{"YOU", "CPU1"}, 10000, 500, 1000, "NLH")
 		g.Players[0].Status = PlayerStatusPlaying
 		g.Players[1].Status = PlayerStatusFolded
 		// This should be true regardless of actions taken
@@ -125,7 +121,7 @@ func TestIsBettingRoundOver(t *testing.T) {
 	})
 
 	t.Run("Round over - all-in player cannot act on a raise", func(t *testing.T) {
-		g := newGameForBettingTestsWithRules([]string{"YOU", "CPU1"}, 10000, 500, 1000, "NLH")
+		g := newGameForBettingTests([]string{"YOU", "CPU1"}, 10000, 500, 1000, "NLH")
 		g.Players[0].Status = PlayerStatusAllIn
 		g.Players[0].CurrentBet = 100
 		g.Players[1].Status = PlayerStatusPlaying
@@ -134,6 +130,48 @@ func TestIsBettingRoundOver(t *testing.T) {
 		g.ActionsTakenThisRound = 1 // Only the active player needs to have acted
 		if !g.IsBettingRoundOver() {
 			t.Error("Expected betting round to BE over when a player is all-in and cannot call a raise")
+		}
+	})
+}
+
+func TestIsRaisingMeaningless(t *testing.T) {
+	t.Run("All opponents all-in - raising is meaningless", func(t *testing.T) {
+		g := newGameForBettingTests([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
+		g.Players[0].Status = PlayerStatusPlaying
+		g.Players[1].Status = PlayerStatusAllIn
+		g.Players[2].Status = PlayerStatusAllIn
+		if !g.IsRaisingMeaningless() {
+			t.Error("Expected raising to be meaningless when all opponents are all-in")
+		}
+	})
+
+	t.Run("All opponents folded or all-in - raising is meaningless", func(t *testing.T) {
+		g := newGameForBettingTests([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
+		g.Players[0].Status = PlayerStatusPlaying
+		g.Players[1].Status = PlayerStatusFolded
+		g.Players[2].Status = PlayerStatusAllIn
+		if !g.IsRaisingMeaningless() {
+			t.Error("Expected raising to be meaningless when opponents are folded or all-in")
+		}
+	})
+
+	t.Run("An opponent is still playing - raising is meaningful", func(t *testing.T) {
+		g := newGameForBettingTests([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
+		g.Players[0].Status = PlayerStatusPlaying
+		g.Players[1].Status = PlayerStatusPlaying
+		g.Players[2].Status = PlayerStatusAllIn
+		if g.IsRaisingMeaningless() {
+			t.Error("Expected raising to be meaningful when an opponent is still playing")
+		}
+	})
+
+	t.Run("All players playing - raising is meaningful", func(t *testing.T) {
+		g := newGameForBettingTests([]string{"YOU", "CPU1", "CPU2"}, 10000, 500, 1000, "NLH")
+		g.Players[0].Status = PlayerStatusPlaying
+		g.Players[1].Status = PlayerStatusPlaying
+		g.Players[2].Status = PlayerStatusPlaying
+		if g.IsRaisingMeaningless() {
+			t.Error("Expected raising to be meaningful when all players are still playing")
 		}
 	})
 }
