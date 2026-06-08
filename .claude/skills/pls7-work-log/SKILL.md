@@ -1,11 +1,11 @@
 ---
 name: pls7-work-log
-description: Use when the user asks to create a work log, issue history document, or says /pls7-work-log. Generates or updates a summary of today's session work in docs/issue-history/ with the project's naming convention.
+description: Use when the user asks to create a work log, issue history document, or says /pls7-work-log. Generates or updates a summary of today's session work in docs/archive/issue-history/ with the project's naming convention.
 ---
 
 # Work Log Generator
 
-Generate or update a work log document in `docs/issue-history/` summarizing the current session's work.
+Generate or update a work log document in `docs/archive/issue-history/` summarizing the current session's work.
 
 ## Process
 
@@ -13,8 +13,8 @@ Generate or update a work log document in `docs/issue-history/` summarizing the 
 digraph work_log_flow {
     rankdir=TB;
     "Review conversation history" -> "Identify the main topic of current session";
-    "Identify the main topic of current session" -> "Glob docs/issue-history/YYYYMMDD_*.md";
-    "Glob docs/issue-history/YYYYMMDD_*.md" -> "Today's file(s) found?";
+    "Identify the main topic of current session" -> "Glob docs/archive/issue-history/YYYYMMDD_*.md";
+    "Glob docs/archive/issue-history/YYYYMMDD_*.md" -> "Today's file(s) found?";
     "Today's file(s) found?" -> "Read each file" [label="yes"];
     "Today's file(s) found?" -> "Create new file" [label="no"];
     "Read each file" -> "Context match?";
@@ -31,7 +31,7 @@ digraph work_log_flow {
 Date alone is NOT sufficient. You must compare the **topic/context** of the current session against existing files.
 
 **Steps:**
-1. Glob for `docs/issue-history/YYYYMMDD_*.md` using today's date.
+1. Glob for `docs/archive/issue-history/YYYYMMDD_*.md` using today's date.
 2. If file(s) found, **read each one** and summarize its topic in one sentence.
 3. Summarize the current session's work topic in one sentence.
 4. **Compare**: Are they the same logical stream of work?
@@ -45,7 +45,7 @@ Date alone is NOT sufficient. You must compare the **topic/context** of the curr
 ## Filename Convention
 
 ```
-docs/issue-history/YYYYMMDD_snake_case_topic.md
+docs/archive/issue-history/YYYYMMDD_snake_case_topic.md
 ```
 
 - Date: today's date in `YYYYMMDD` format

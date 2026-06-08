@@ -1,5 +1,7 @@
 # pls7-cli 애플리케이션 아키텍처
 
+> This Korean document is a supporting reference. The canonical architecture document is [../../ARCHITECTURE.md](../../ARCHITECTURE.md).
+
 이 문서는 `pls7-cli` 프로젝트의 아키텍처, 핵심 구성 요소, 설계 패턴, 데이터 흐름 및 상호 작용에 대한 포괄적인 기술 문서입니다.
 
 ---

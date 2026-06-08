@@ -1,5 +1,7 @@
 # 디렉토리 구조
 
+> This Korean document is a supporting reference. The canonical architecture and project layout document is [../../ARCHITECTURE.md](../../ARCHITECTURE.md).
+
 이 문서는 `pls7-cli` 프로젝트의 전체 디렉토리 구조를 설명합니다. 모든 디렉토리와 파일의 목적과 책임을 상세히 기술합니다.
 
 ## 3계층 아키텍처
