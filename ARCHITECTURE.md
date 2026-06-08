@@ -234,7 +234,7 @@ flowchart TD
     E --> F["Deal hole cards to all players"]
     F --> G{"Phase == Showdown<br/>or HandOver?"}
 
-    G -- No --> H{"CountNonFoldedPlayers()<br/><= 1?"}
+    G -- No --> H{"CountNonFoldedPlayers()<br/>&lt;= 1?"}
     H -- Yes --> M
     H -- No --> I["PrepareNewBettingRound()"]
     I --> J{"IsBettingRoundOver()?"}
@@ -491,10 +491,10 @@ flowchart TD
 
     PHASE -- "PostFlop<br/>(Flop/Turn/River)" --> POST_EVAL["Evaluate hand rank<br/>against community cards"]
     POST_EVAL --> STRONG{"Hand is strong?<br/>(high hand rank)"}
-    STRONG -- Yes --> AGG{"rand < AggressionFactor?"}
+    STRONG -- Yes --> AGG{"rand &lt; AggressionFactor?"}
     AGG -- Yes --> RAISE
     AGG -- No --> CALL
-    STRONG -- No --> BLUFF{"rand < BluffingFrequency?"}
+    STRONG -- No --> BLUFF{"rand &lt; BluffingFrequency?"}
     BLUFF -- Yes --> RAISE
     BLUFF -- No --> WEAK_CHECK{"Can check?"}
     WEAK_CHECK -- Yes --> CHECK
